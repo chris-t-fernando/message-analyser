@@ -7,6 +7,8 @@ from pathlib import Path
 import csv
 import io
 import os
+import re
+from collections import Counter
 import boto3
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -107,7 +109,7 @@ async def upload(csv_file: UploadFile = File(...), env: str = "devtest"):
 
 
 @app.get("/search")
-def search(query: str = Query(..., min_length=1), env: str = "dev"):
+def search(query: str = Query(..., min_length=1), env: str = "devtest"):
     conn = get_conn(env)
     cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute(
@@ -148,6 +150,45 @@ def search(query: str = Query(..., min_length=1), env: str = "dev"):
         "end": start_index + len(subset) - 1,
         "rows": subset,
     }
+
+
+@app.get("/wordcloud")
+def get_wordcloud(env: str = "devtest"):
+    conn = get_conn(env)
+    cur = conn.cursor()
+    cur.execute(
+        "CREATE TABLE IF NOT EXISTS wordclouds (id SERIAL PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), data JSONB)"
+    )
+    cur.execute("SELECT data FROM wordclouds ORDER BY created_at DESC LIMIT 1")
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    if row:
+        return {"words": row[0]}
+    return {"words": None}
+
+
+@app.post("/generate_wordcloud")
+def generate_wordcloud(env: str = "devtest"):
+    conn = get_conn(env)
+    cur = conn.cursor()
+    cur.execute(
+        "CREATE TABLE IF NOT EXISTS wordclouds (id SERIAL PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), data JSONB)"
+    )
+    cur.execute("SELECT text FROM messages")
+    rows = cur.fetchall()
+    text = " ".join(r[0] for r in rows if r[0])
+    if not text:
+        cur.close()
+        conn.close()
+        return {"status": "no_messages"}
+    words = re.findall(r"\w+", text.lower())
+    counts = Counter(words)
+    cur.execute("INSERT INTO wordclouds (data) VALUES (%s)", (json.dumps(counts),))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {"status": "generated"}
 
 
 if __name__ == "__main__":

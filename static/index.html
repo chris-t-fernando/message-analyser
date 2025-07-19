@@ -16,6 +16,28 @@
       border-collapse: collapse;
       padding: 4px;
     }
+
+    body {
+      margin-right: 220px;
+    }
+
+    #side-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 200px;
+      height: 100%;
+      overflow-y: auto;
+      border-left: 1px solid #ccc;
+      background: #f9f9f9;
+      padding: 10px;
+    }
+
+    #wordcloud a {
+      text-decoration: none;
+      color: inherit;
+      margin: 0 4px;
+    }
   </style>
 </head>
 
@@ -25,6 +47,11 @@
   <input id="query" placeholder="Search text" />
   <button onclick="doSearch()">Search</button>
   <table id="results"></table>
+  <div id="side-panel">
+    <h3>Word Cloud</h3>
+    <div id="wordcloud"></div>
+    <p><a href="#" id="generate-wordcloud">Generate Word Cloud</a></p>
+  </div>
   <script>
     async function doSearch() {
       const query = document.getElementById('query').value;
@@ -60,9 +87,44 @@
           }
           tr.appendChild(td);
         });
-        table.appendChild(tr);
-      });
+      table.appendChild(tr);
+    });
+  }
+
+  async function loadWordCloud() {
+    const res = await fetch('/wordcloud');
+    const data = await res.json();
+    const container = document.getElementById('wordcloud');
+    container.innerHTML = '';
+    if (data.words) {
+      const entries = Object.entries(data.words);
+      if (entries.length) {
+        const max = Math.max(...entries.map(e => e[1]));
+        entries.forEach(([word, count]) => {
+          const a = document.createElement('a');
+          a.href = '#';
+          a.textContent = word;
+          const size = 10 + (count / max) * 20;
+          a.style.fontSize = size + 'px';
+          a.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            document.getElementById('query').value = word;
+            doSearch();
+          });
+          container.appendChild(a);
+          container.appendChild(document.createTextNode(' '));
+        });
+      }
     }
+  }
+
+  document.getElementById('generate-wordcloud').addEventListener('click', async (e) => {
+    e.preventDefault();
+    await fetch('/generate_wordcloud', { method: 'POST' });
+    loadWordCloud();
+  });
+
+  loadWordCloud();
   </script>
 </body>
 
