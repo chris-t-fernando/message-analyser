@@ -1,3 +1,4 @@
+import json
 from fastapi import FastAPI, File, Query, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -26,12 +27,16 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 def get_db_config(env: str) -> dict:
     """Load database configuration from AWS SSM."""
     ssm = boto3.client("ssm")
-    keys = ["PGHOST", "PGPORT", "PGUSER", "PGPASSWORD"]
+    keys = ["PGHOST", "PGPORT", "PGUSER", "PGPASSWORD", "PGDATABASE"]
     cfg = {}
     for key in keys:
         name = f"/stockapp/{env}/{key}"
         resp = ssm.get_parameter(Name=name, WithDecryption=True)
-        cfg[key] = resp["Parameter"]["Value"]
+        value = resp["Parameter"]["Value"]
+        try:
+            cfg[key] = json.loads(value)
+        except json.JSONDecodeError:
+            cfg[key] = value
     return cfg
 
 
@@ -42,7 +47,7 @@ def get_conn(env: str):
         port=cfg["PGPORT"],
         user=cfg["PGUSER"],
         password=cfg["PGPASSWORD"],
-        dbname=os.getenv("PGDATABASE", "postgres"),
+        dbname=cfg["PGDATABASE"],
     )
 
 
@@ -51,8 +56,13 @@ def index():
     return Path("static/index.html").read_text(encoding="utf-8")
 
 
+@app.get("/upload", response_class=HTMLResponse)
+def upload_page():
+    return Path("static/upload.html").read_text(encoding="utf-8")
+
+
 @app.post("/upload")
-async def upload(csv_file: UploadFile = File(...), env: str = "dev"):
+async def upload(csv_file: UploadFile = File(...), env: str = "devtest"):
     conn = get_conn(env)
     cur = conn.cursor()
     cur.execute(
