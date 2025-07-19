@@ -6,14 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 import csv
 import io
-import os
 import re
 from collections import Counter
-import boto3
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from config import get_settings
 
 app = FastAPI()
+# load configuration from environment
+settings = get_settings()
 # allow requests from the demo page
 app.add_middleware(
     CORSMiddleware,
@@ -26,30 +27,15 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-def get_db_config(env: str) -> dict:
-    """Load database configuration from AWS SSM."""
-    ssm = boto3.client("ssm")
-    keys = ["PGHOST", "PGPORT", "PGUSER", "PGPASSWORD", "PGDATABASE"]
-    cfg = {}
-    for key in keys:
-        name = f"/stockapp/{env}/{key}"
-        resp = ssm.get_parameter(Name=name, WithDecryption=True)
-        value = resp["Parameter"]["Value"]
-        try:
-            cfg[key] = json.loads(value)
-        except json.JSONDecodeError:
-            cfg[key] = value
-    return cfg
 
-
-def get_conn(env: str):
-    cfg = get_db_config(env)
+def get_conn():
+    cfg = settings.database
     return psycopg2.connect(
-        host=cfg["PGHOST"],
-        port=cfg["PGPORT"],
-        user=cfg["PGUSER"],
-        password=cfg["PGPASSWORD"],
-        dbname=cfg["PGDATABASE"],
+        host=cfg.host,
+        port=cfg.port,
+        user=cfg.user,
+        password=cfg.password,
+        dbname=cfg.name,
     )
 
 
@@ -64,8 +50,8 @@ def upload_page():
 
 
 @app.post("/upload")
-async def upload(csv_file: UploadFile = File(...), env: str = "devtest"):
-    conn = get_conn(env)
+async def upload(csv_file: UploadFile = File(...)):
+    conn = get_conn()
     cur = conn.cursor()
     cur.execute(
         """
@@ -109,8 +95,8 @@ async def upload(csv_file: UploadFile = File(...), env: str = "devtest"):
 
 
 @app.get("/search")
-def search(query: str = Query(..., min_length=1), env: str = "devtest"):
-    conn = get_conn(env)
+def search(query: str = Query(..., min_length=1)):
+    conn = get_conn()
     cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute(
         """
@@ -153,8 +139,8 @@ def search(query: str = Query(..., min_length=1), env: str = "devtest"):
 
 
 @app.get("/wordcloud")
-def get_wordcloud(env: str = "devtest"):
-    conn = get_conn(env)
+def get_wordcloud():
+    conn = get_conn()
     cur = conn.cursor()
     cur.execute(
         "CREATE TABLE IF NOT EXISTS wordclouds (id SERIAL PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), data JSONB)"
@@ -169,8 +155,8 @@ def get_wordcloud(env: str = "devtest"):
 
 
 @app.post("/generate_wordcloud")
-def generate_wordcloud(env: str = "devtest"):
-    conn = get_conn(env)
+def generate_wordcloud():
+    conn = get_conn()
     cur = conn.cursor()
     cur.execute(
         "CREATE TABLE IF NOT EXISTS wordclouds (id SERIAL PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), data JSONB)"
