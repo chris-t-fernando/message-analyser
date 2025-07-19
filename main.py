@@ -96,46 +96,66 @@ async def upload(csv_file: UploadFile = File(...)):
 
 @app.get("/search")
 def search(query: str = Query(..., min_length=1)):
+    """Search for all rows containing the query and return groups with context."""
     conn = get_conn()
     cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    # Find all matching ids ordered by id
     cur.execute(
         """
-        SELECT id, msg_date AS "Date", sender AS "Sender", received AS "Received", imessage AS "iMessage", text AS "Text"
+        SELECT id
         FROM messages
         WHERE LOWER(text) LIKE %s
         ORDER BY id
-        LIMIT 1
         """,
         (f"%{query.lower()}%",),
     )
-    row = cur.fetchone()
-    if not row:
+    id_rows = cur.fetchall()
+    if not id_rows:
         cur.close()
         conn.close()
-        return {"found_index": None, "start": None, "end": None, "rows": []}
+        return {"groups": []}
 
-    found_id = row["id"]
-    start_id = max(found_id - 5, 1)
-    end_id = found_id + 5
-    cur.execute(
-        """
-        SELECT msg_date AS "Date", sender AS "Sender", received AS "Received", imessage AS "iMessage", text AS "Text"
-        FROM messages
-        WHERE id BETWEEN %s AND %s
-        ORDER BY id
-        """,
-        (start_id, end_id),
-    )
-    subset = cur.fetchall()
+    ids = [r["id"] for r in id_rows]
+
+    # Group ids that fall within 10 lines of each other (5 before/after)
+    groups: list[list[int]] = []
+    current_group = [ids[0]]
+    for i in ids[1:]:
+        if i - current_group[-1] <= 10:
+            current_group.append(i)
+        else:
+            groups.append(current_group)
+            current_group = [i]
+    groups.append(current_group)
+
+    results: list[dict] = []
+    for g in groups:
+        start_id = max(g[0] - 5, 1)
+        end_id = g[-1] + 5
+        cur.execute(
+            """
+            SELECT id, msg_date AS "Date", sender AS "Sender", received AS "Received", imessage AS "iMessage", text AS "Text"
+            FROM messages
+            WHERE id BETWEEN %s AND %s
+            ORDER BY id
+            """,
+            (start_id, end_id),
+        )
+        subset = cur.fetchall()
+        match_indices = [mid - start_id for mid in g]
+        results.append(
+            {
+                "start": start_id - 1,
+                "end": start_id - 1 + len(subset) - 1,
+                "match_indices": match_indices,
+                "rows": subset,
+            }
+        )
+
     cur.close()
     conn.close()
-    start_index = start_id - 1
-    return {
-        "found_index": found_id - 1,
-        "start": start_index,
-        "end": start_index + len(subset) - 1,
-        "rows": subset,
-    }
+    return {"groups": results}
 
 
 @app.get("/wordcloud")
