@@ -1,4 +1,5 @@
-from pydantic import BaseSettings, BaseModel
+from pydantic import BaseModel
+from pydantic_settings import BaseSettings
 import boto3
 import json
 
