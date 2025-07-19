@@ -7,9 +7,8 @@ from pathlib import Path
 import csv
 import io
 import os
-import base64
-from io import BytesIO
-from wordcloud import WordCloud
+import re
+from collections import Counter
 import boto3
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -158,15 +157,15 @@ def get_wordcloud(env: str = "dev"):
     conn = get_conn(env)
     cur = conn.cursor()
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS wordclouds (id SERIAL PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), image TEXT)"
+        "CREATE TABLE IF NOT EXISTS wordclouds (id SERIAL PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), data JSONB)"
     )
-    cur.execute("SELECT image FROM wordclouds ORDER BY created_at DESC LIMIT 1")
+    cur.execute("SELECT data FROM wordclouds ORDER BY created_at DESC LIMIT 1")
     row = cur.fetchone()
     cur.close()
     conn.close()
     if row:
-        return {"image": row[0]}
-    return {"image": None}
+        return {"words": row[0]}
+    return {"words": None}
 
 
 @app.post("/generate_wordcloud")
@@ -174,7 +173,7 @@ def generate_wordcloud(env: str = "dev"):
     conn = get_conn(env)
     cur = conn.cursor()
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS wordclouds (id SERIAL PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), image TEXT)"
+        "CREATE TABLE IF NOT EXISTS wordclouds (id SERIAL PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), data JSONB)"
     )
     cur.execute("SELECT text FROM messages")
     rows = cur.fetchall()
@@ -183,13 +182,9 @@ def generate_wordcloud(env: str = "dev"):
         cur.close()
         conn.close()
         return {"status": "no_messages"}
-    wc = WordCloud(width=400, height=300)
-    wc.generate(text)
-    img = wc.to_image()
-    buf = BytesIO()
-    img.save(buf, format="PNG")
-    img_str = base64.b64encode(buf.getvalue()).decode("utf-8")
-    cur.execute("INSERT INTO wordclouds (image) VALUES (%s)", (img_str,))
+    words = re.findall(r"\w+", text.lower())
+    counts = Counter(words)
+    cur.execute("INSERT INTO wordclouds (data) VALUES (%s)", (json.dumps(counts),))
     conn.commit()
     cur.close()
     conn.close()
