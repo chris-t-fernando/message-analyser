@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>CSV Search</title>
+  <style>
+    mark { background-color: yellow; }
+    table, th, td { border: 1px solid #ccc; border-collapse: collapse; padding:4px; }
+  </style>
+</head>
+<body>
+  <h1>CSV Search</h1>
+  <input id="query" placeholder="Search text" />
+  <button onclick="doSearch()">Search</button>
+  <table id="results"></table>
+<script>
+async function doSearch() {
+  const query = document.getElementById('query').value;
+  const res = await fetch('/search?query=' + encodeURIComponent(query));
+  const data = await res.json();
+  const table = document.getElementById('results');
+  table.innerHTML = '';
+  if (!data.rows.length) {
+    table.innerHTML = '<tr><td>No results found</td></tr>';
+    return;
+  }
+  const headerRow = document.createElement('tr');
+  ['Index','Date','Sender','Received','iMessage','Text'].forEach(h=>{
+    const th = document.createElement('th');
+    th.textContent = h;
+    headerRow.appendChild(th);
+  });
+  table.appendChild(headerRow);
+  data.rows.forEach((row, i) => {
+    const tr = document.createElement('tr');
+    if (data.start + i === data.found_index) {
+      tr.style.backgroundColor = '#ffeeba';
+    }
+    ['index','Date','Sender','Received','iMessage','Text'].forEach(key => {
+      const td = document.createElement('td');
+      if (key === 'index') {
+        td.textContent = data.start + i;
+      } else if (key === 'Text') {
+        const regex = new RegExp('(' + query.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&') + ')', 'gi');
+        td.innerHTML = row[key].replace(regex, '<mark>$1</mark>');
+      } else {
+        td.textContent = row[key];
+      }
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+}
+</script>
+</body>
+</html>
