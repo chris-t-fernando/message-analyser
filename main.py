@@ -109,7 +109,7 @@ async def upload(csv_file: UploadFile = File(...), env: str = "devtest"):
 
 
 @app.get("/search")
-def search(query: str = Query(..., min_length=1), env: str = "dev"):
+def search(query: str = Query(..., min_length=1), env: str = "devtest"):
     conn = get_conn(env)
     cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute(
@@ -153,7 +153,7 @@ def search(query: str = Query(..., min_length=1), env: str = "dev"):
 
 
 @app.get("/wordcloud")
-def get_wordcloud(env: str = "dev"):
+def get_wordcloud(env: str = "devtest"):
     conn = get_conn(env)
     cur = conn.cursor()
     cur.execute(
@@ -169,7 +169,7 @@ def get_wordcloud(env: str = "dev"):
 
 
 @app.post("/generate_wordcloud")
-def generate_wordcloud(env: str = "dev"):
+def generate_wordcloud(env: str = "devtest"):
     conn = get_conn(env)
     cur = conn.cursor()
     cur.execute(
