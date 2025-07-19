@@ -6,14 +6,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 import csv
 import io
-import os
 import re
 from collections import Counter
 import boto3
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from config import Settings
 
 app = FastAPI()
+# load configuration from environment
+settings = Settings()
 # allow requests from the demo page
 app.add_middleware(
     CORSMiddleware,
@@ -26,7 +28,7 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-def get_db_config(env: str) -> dict:
+def get_db_config(env: str = settings.environment) -> dict:
     """Load database configuration from AWS SSM."""
     ssm = boto3.client("ssm")
     keys = ["PGHOST", "PGPORT", "PGUSER", "PGPASSWORD", "PGDATABASE"]
@@ -42,7 +44,7 @@ def get_db_config(env: str) -> dict:
     return cfg
 
 
-def get_conn(env: str):
+def get_conn(env: str = settings.environment):
     cfg = get_db_config(env)
     return psycopg2.connect(
         host=cfg["PGHOST"],
@@ -64,8 +66,8 @@ def upload_page():
 
 
 @app.post("/upload")
-async def upload(csv_file: UploadFile = File(...), env: str = "devtest"):
-    conn = get_conn(env)
+async def upload(csv_file: UploadFile = File(...)):
+    conn = get_conn()
     cur = conn.cursor()
     cur.execute(
         """
@@ -109,8 +111,8 @@ async def upload(csv_file: UploadFile = File(...), env: str = "devtest"):
 
 
 @app.get("/search")
-def search(query: str = Query(..., min_length=1), env: str = "devtest"):
-    conn = get_conn(env)
+def search(query: str = Query(..., min_length=1)):
+    conn = get_conn()
     cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute(
         """
@@ -153,8 +155,8 @@ def search(query: str = Query(..., min_length=1), env: str = "devtest"):
 
 
 @app.get("/wordcloud")
-def get_wordcloud(env: str = "devtest"):
-    conn = get_conn(env)
+def get_wordcloud():
+    conn = get_conn()
     cur = conn.cursor()
     cur.execute(
         "CREATE TABLE IF NOT EXISTS wordclouds (id SERIAL PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), data JSONB)"
@@ -169,8 +171,8 @@ def get_wordcloud(env: str = "devtest"):
 
 
 @app.post("/generate_wordcloud")
-def generate_wordcloud(env: str = "devtest"):
-    conn = get_conn(env)
+def generate_wordcloud():
+    conn = get_conn()
     cur = conn.cursor()
     cur.execute(
         "CREATE TABLE IF NOT EXISTS wordclouds (id SERIAL PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), data JSONB)"
