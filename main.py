@@ -23,7 +23,6 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-
 def get_db_config(env: str) -> dict:
     """Load database configuration from AWS SSM."""
     ssm = boto3.client("ssm")
@@ -80,7 +79,13 @@ async def upload(csv_file: UploadFile = File(...), env: str = "dev"):
             VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT DO NOTHING
             """,
-            (row.get("Date"), row.get("Sender"), row.get("Received"), row.get("iMessage"), row.get("Text")),
+            (
+                row.get("Date"),
+                row.get("Sender"),
+                row.get("Received"),
+                row.get("iMessage"),
+                row.get("Text"),
+            ),
         )
         if cur.rowcount > 0:
             inserted += 1
