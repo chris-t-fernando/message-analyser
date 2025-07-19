@@ -7,6 +7,9 @@ from pathlib import Path
 import csv
 import io
 import os
+import base64
+from io import BytesIO
+from wordcloud import WordCloud
 import boto3
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -148,6 +151,49 @@ def search(query: str = Query(..., min_length=1), env: str = "dev"):
         "end": start_index + len(subset) - 1,
         "rows": subset,
     }
+
+
+@app.get("/wordcloud")
+def get_wordcloud(env: str = "dev"):
+    conn = get_conn(env)
+    cur = conn.cursor()
+    cur.execute(
+        "CREATE TABLE IF NOT EXISTS wordclouds (id SERIAL PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), image TEXT)"
+    )
+    cur.execute("SELECT image FROM wordclouds ORDER BY created_at DESC LIMIT 1")
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    if row:
+        return {"image": row[0]}
+    return {"image": None}
+
+
+@app.post("/generate_wordcloud")
+def generate_wordcloud(env: str = "dev"):
+    conn = get_conn(env)
+    cur = conn.cursor()
+    cur.execute(
+        "CREATE TABLE IF NOT EXISTS wordclouds (id SERIAL PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), image TEXT)"
+    )
+    cur.execute("SELECT text FROM messages")
+    rows = cur.fetchall()
+    text = " ".join(r[0] for r in rows if r[0])
+    if not text:
+        cur.close()
+        conn.close()
+        return {"status": "no_messages"}
+    wc = WordCloud(width=400, height=300)
+    wc.generate(text)
+    img = wc.to_image()
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    img_str = base64.b64encode(buf.getvalue()).decode("utf-8")
+    cur.execute("INSERT INTO wordclouds (image) VALUES (%s)", (img_str,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {"status": "generated"}
 
 
 if __name__ == "__main__":

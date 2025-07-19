@@ -3,3 +3,6 @@ uvicorn
 boto3
 psycopg2-binary
 python-multipart
+wordcloud
+Pillow
+numpy

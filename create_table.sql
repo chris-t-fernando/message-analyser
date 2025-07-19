@@ -7,3 +7,9 @@ CREATE TABLE IF NOT EXISTS messages (
     text TEXT,
     UNIQUE (msg_date, sender, text)
 );
+
+CREATE TABLE IF NOT EXISTS wordclouds (
+    id SERIAL PRIMARY KEY,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    image TEXT
+);

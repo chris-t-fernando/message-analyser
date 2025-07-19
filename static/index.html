@@ -16,6 +16,22 @@
       border-collapse: collapse;
       padding: 4px;
     }
+
+    body {
+      margin-right: 220px;
+    }
+
+    #side-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 200px;
+      height: 100%;
+      overflow-y: auto;
+      border-left: 1px solid #ccc;
+      background: #f9f9f9;
+      padding: 10px;
+    }
   </style>
 </head>
 
@@ -25,6 +41,11 @@
   <input id="query" placeholder="Search text" />
   <button onclick="doSearch()">Search</button>
   <table id="results"></table>
+  <div id="side-panel">
+    <h3>Word Cloud</h3>
+    <img id="wordcloud-image" style="max-width: 100%;" />
+    <p><a href="#" id="generate-wordcloud">Generate Word Cloud</a></p>
+  </div>
   <script>
     async function doSearch() {
       const query = document.getElementById('query').value;
@@ -60,9 +81,25 @@
           }
           tr.appendChild(td);
         });
-        table.appendChild(tr);
-      });
+      table.appendChild(tr);
+    });
+  }
+
+  async function loadWordCloud() {
+    const res = await fetch('/wordcloud');
+    const data = await res.json();
+    if (data.image) {
+      document.getElementById('wordcloud-image').src = 'data:image/png;base64,' + data.image;
     }
+  }
+
+  document.getElementById('generate-wordcloud').addEventListener('click', async (e) => {
+    e.preventDefault();
+    await fetch('/generate_wordcloud', { method: 'POST' });
+    loadWordCloud();
+  });
+
+  loadWordCloud();
   </script>
 </body>
 
