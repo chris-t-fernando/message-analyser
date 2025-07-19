@@ -8,14 +8,13 @@ import csv
 import io
 import re
 from collections import Counter
-import boto3
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from config import Settings
+from config import get_settings
 
 app = FastAPI()
 # load configuration from environment
-settings = Settings()
+settings = get_settings()
 # allow requests from the demo page
 app.add_middleware(
     CORSMiddleware,
@@ -28,30 +27,15 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-def get_db_config(env: str = settings.environment) -> dict:
-    """Load database configuration from AWS SSM."""
-    ssm = boto3.client("ssm")
-    keys = ["PGHOST", "PGPORT", "PGUSER", "PGPASSWORD", "PGDATABASE"]
-    cfg = {}
-    for key in keys:
-        name = f"/stockapp/{env}/{key}"
-        resp = ssm.get_parameter(Name=name, WithDecryption=True)
-        value = resp["Parameter"]["Value"]
-        try:
-            cfg[key] = json.loads(value)
-        except json.JSONDecodeError:
-            cfg[key] = value
-    return cfg
 
-
-def get_conn(env: str = settings.environment):
-    cfg = get_db_config(env)
+def get_conn():
+    cfg = settings.database
     return psycopg2.connect(
-        host=cfg["PGHOST"],
-        port=cfg["PGPORT"],
-        user=cfg["PGUSER"],
-        password=cfg["PGPASSWORD"],
-        dbname=cfg["PGDATABASE"],
+        host=cfg.host,
+        port=cfg.port,
+        user=cfg.user,
+        password=cfg.password,
+        dbname=cfg.name,
     )
 
 
