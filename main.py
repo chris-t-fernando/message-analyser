@@ -93,7 +93,9 @@ async def upload(csv_file: UploadFile = File(...)):
     )
 
     content = await csv_file.read()
-    reader = csv.DictReader(io.StringIO(content.decode("utf-8")))
+    text = content.decode("utf-8", errors="replace")
+    # use newline="" to ensure the csv module handles multi-line fields correctly
+    reader = csv.DictReader(io.StringIO(text, newline=""))
     inserted = 0
     for row in reader:
         name, phone = parse_sender(row.get("Sender"))
