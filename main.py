@@ -170,7 +170,11 @@ def get_wordcloud():
     cur.close()
     conn.close()
     if row:
-        return {"words": row[0]}
+        data = row[0]
+        if isinstance(data, dict):
+            items = sorted(data.items(), key=lambda x: x[1], reverse=True)[:100]
+            data = {k: v for k, v in items}
+        return {"words": data}
     return {"words": None}
 
 
