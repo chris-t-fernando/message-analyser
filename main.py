@@ -75,7 +75,15 @@ async def upload(csv_file: UploadFile = File(...)):
     )
 
     content = await csv_file.read()
-    reader = csv.DictReader(io.StringIO(content.decode("utf-8")))
+    text = content.decode("utf-8", errors="replace")
+    # Normalize line endings and remove control characters that may confuse the
+    # CSV parser. Some exports include lone carriage returns (\r) or other
+    # unicode separators which cause the csv module to misinterpret newlines.
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    for ch in ("\u2028", "\u2029", "\x0b", "\x0c", "\u0085"):
+        text = text.replace(ch, "\n")
+    text = text.replace("\ufeff", "").replace("\x00", "")
+    reader = csv.DictReader(io.StringIO(text, newline=""))
     inserted = 0
     for row in reader:
         name, phone = parse_sender(row.get("Sender"))
