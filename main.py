@@ -38,6 +38,15 @@ def get_conn():
     )
 
 
+def parse_sender(sender: str) -> tuple[str, str | None]:
+    """Return (name, phone_digits) based on sender string."""
+    if sender is None:
+        return "Hayley", None
+    digits = re.sub(r"\D", "", sender)
+    name = "Chris" if "417017950" in digits else "Hayley"
+    return name, digits or None
+
+
 @app.get("/", response_class=HTMLResponse)
 def index():
     return Path("static/index.html").read_text(encoding="utf-8")
@@ -58,10 +67,9 @@ async def upload(csv_file: UploadFile = File(...)):
             id SERIAL PRIMARY KEY,
             msg_date TEXT,
             sender TEXT,
-            received TEXT,
-            imessage TEXT,
+            phone TEXT,
             text TEXT,
-            UNIQUE(msg_date, sender, text)
+            UNIQUE(msg_date, sender, text, phone)
         )
         """
     )
@@ -70,17 +78,17 @@ async def upload(csv_file: UploadFile = File(...)):
     reader = csv.DictReader(io.StringIO(content.decode("utf-8")))
     inserted = 0
     for row in reader:
+        name, phone = parse_sender(row.get("Sender"))
         cur.execute(
             """
-            INSERT INTO messages (msg_date, sender, received, imessage, text)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO messages (msg_date, sender, phone, text)
+            VALUES (%s, %s, %s, %s)
             ON CONFLICT DO NOTHING
             """,
             (
                 row.get("Date"),
-                row.get("Sender"),
-                row.get("Received"),
-                row.get("iMessage"),
+                name,
+                phone,
                 row.get("Text"),
             ),
         )
@@ -134,7 +142,11 @@ def search(query: str = Query(..., min_length=1)):
         end_id = g[-1] + 5
         cur.execute(
             """
-            SELECT id, msg_date AS "Date", sender AS "Sender", received AS "Received", imessage AS "iMessage", text AS "Text"
+            SELECT id,
+                   msg_date AS "Date",
+                   sender AS "Sender",
+                   phone,
+                   text AS "Text"
             FROM messages
             WHERE id BETWEEN %s AND %s
             ORDER BY id
