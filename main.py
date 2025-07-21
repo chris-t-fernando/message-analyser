@@ -27,7 +27,6 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-
 def get_conn():
     cfg = settings.database
     return psycopg2.connect(
@@ -172,7 +171,7 @@ def get_wordcloud():
     if row:
         data = row[0]
         if isinstance(data, dict):
-            items = sorted(data.items(), key=lambda x: x[1], reverse=True)[:100]
+            items = sorted(data.items(), key=lambda x: x[1], reverse=True)[:200]
             data = {k: v for k, v in items}
         return {"words": data}
     return {"words": None}
