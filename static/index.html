@@ -64,7 +64,7 @@
       return;
     }
     const headerRow = document.createElement('tr');
-    ['Index', 'Date', 'Sender', 'Received', 'iMessage', 'Text'].forEach(h => {
+    ['Index', 'Date', 'Sender', 'Text'].forEach(h => {
       const th = document.createElement('th');
       th.textContent = h;
       headerRow.appendChild(th);
@@ -76,13 +76,18 @@
         if (group.match_indices.includes(i)) {
           tr.style.backgroundColor = '#ffeeba';
         }
-        ['index', 'Date', 'Sender', 'Received', 'iMessage', 'Text'].forEach(key => {
+        ['index', 'Date', 'Sender', 'Text'].forEach(key => {
           const td = document.createElement('td');
           if (key === 'index') {
             td.textContent = group.start + i;
           } else if (key === 'Text') {
             const regex = new RegExp('(' + query.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&') + ')', 'gi');
             td.innerHTML = row[key].replace(regex, '<mark>$1</mark>');
+          } else if (key === 'Sender') {
+            td.textContent = row[key];
+            if (row.phone) {
+              td.title = row.phone;
+            }
           } else {
             td.textContent = row[key];
           }
@@ -92,7 +97,7 @@
       });
       const sep = document.createElement('tr');
       const td = document.createElement('td');
-      td.colSpan = 6;
+      td.colSpan = 4;
       td.innerHTML = '&nbsp;';
       sep.appendChild(td);
       table.appendChild(sep);
