@@ -8,7 +8,6 @@ import csv
 import io
 import re
 from collections import Counter
-from datetime import datetime, timedelta
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from config import get_settings
@@ -48,23 +47,6 @@ def parse_sender(sender: str) -> tuple[str, str | None]:
     return name, digits or None
 
 
-POSITIVE_WORDS = {"good", "great", "happy", "love", "nice", "thanks", "thank", "pleased", "wonderful"}
-NEGATIVE_WORDS = {"bad", "sad", "angry", "hate", "upset", "annoyed", "disappointed", "unhappy", "mad", "sorry"}
-
-
-def parse_dt(s: str) -> datetime:
-    """Parse message date string to datetime."""
-    return datetime.strptime(s, "%A, %b %d %Y, %H:%M")
-
-
-def tone_score(text: str) -> tuple[int, int]:
-    """Return (positive_count, negative_count) for text."""
-    words = re.findall(r"\w+", (text or "").lower())
-    pos = sum(1 for w in words if w in POSITIVE_WORDS)
-    neg = sum(1 for w in words if w in NEGATIVE_WORDS)
-    return pos, neg
-
-
 @app.get("/", response_class=HTMLResponse)
 def index():
     return Path("static/index.html").read_text(encoding="utf-8")
@@ -94,7 +76,13 @@ async def upload(csv_file: UploadFile = File(...)):
 
     content = await csv_file.read()
     text = content.decode("utf-8", errors="replace")
-    # use newline="" to ensure the csv module handles multi-line fields correctly
+    # Normalize line endings and remove control characters that may confuse the
+    # CSV parser. Some exports include lone carriage returns (\r) or other
+    # unicode separators which cause the csv module to misinterpret newlines.
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    for ch in ("\u2028", "\u2029", "\x0b", "\x0c", "\u0085"):
+        text = text.replace(ch, "\n")
+    text = text.replace("\ufeff", "").replace("\x00", "")
     reader = csv.DictReader(io.StringIO(text, newline=""))
     inserted = 0
     for row in reader:
@@ -230,67 +218,6 @@ def generate_wordcloud():
     cur.close()
     conn.close()
     return {"status": "generated"}
-
-
-@app.get("/conversations", response_class=HTMLResponse)
-def conversations_page():
-    return Path("static/conversations.html").read_text(encoding="utf-8")
-
-
-@app.get("/conversations_data")
-def conversations_data():
-    conn = get_conn()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute(
-        "SELECT msg_date, sender, phone, text FROM messages ORDER BY id"
-    )
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-
-    conv_gap = timedelta(hours=1)
-    conversations: list[list[dict]] = []
-    current: list[dict] = []
-    last_dt: datetime | None = None
-
-    for row in rows:
-        dt = parse_dt(row["msg_date"])
-        if last_dt is not None and dt - last_dt > conv_gap:
-            conversations.append(current)
-            current = []
-        current.append({
-            "Date": row["msg_date"],
-            "Sender": row["sender"],
-            "phone": row["phone"],
-            "Text": row["text"],
-        })
-        last_dt = dt
-    if current:
-        conversations.append(current)
-
-    results = []
-    for idx, conv in enumerate(conversations, 1):
-        scores = {
-            "Chris": {"pos": 0, "neg": 0},
-            "Hayley": {"pos": 0, "neg": 0},
-        }
-        for msg in conv:
-            pos, neg = tone_score(msg.get("Text", ""))
-            sender = msg.get("Sender")
-            if sender in scores:
-                scores[sender]["pos"] += pos
-                scores[sender]["neg"] += neg
-        tone = {}
-        for name, s in scores.items():
-            if s["pos"] > s["neg"]:
-                tone[name] = "positive"
-            elif s["neg"] > s["pos"]:
-                tone[name] = "negative"
-            else:
-                tone[name] = "neutral"
-        results.append({"id": idx, "tone": tone, "messages": conv})
-
-    return {"conversations": results}
 
 
 if __name__ == "__main__":
