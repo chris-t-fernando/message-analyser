@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Conversations</title>
+  <style>
+    body { display: flex; font-family: sans-serif; }
+    #conversation-list { width: 300px; border-right: 1px solid #ccc; padding: 10px; }
+    #messages { flex: 1; padding: 10px; }
+    .conversation { cursor: pointer; margin-bottom: 8px; }
+    .conversation:hover { background: #f0f0f0; }
+    .tone { font-size: 0.9em; color: #555; }
+    .message { margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <div id="conversation-list"></div>
+  <div id="messages"></div>
+
+  <script>
+    async function loadConversations() {
+      const res = await fetch('/api/conversations');
+      const data = await res.json();
+      const list = document.getElementById('conversation-list');
+      list.innerHTML = '';
+      data.conversations.forEach(conv => {
+        const div = document.createElement('div');
+        div.className = 'conversation';
+        const start = new Date(conv.start).toLocaleString();
+        div.innerHTML = `<strong>${start}</strong><div class="tone">Chris: ${conv.tone.Chris}, Hayley: ${conv.tone.Hayley}</div>`;
+        div.addEventListener('click', () => loadConversation(conv.id));
+        list.appendChild(div);
+      });
+    }
+
+    async function loadConversation(id) {
+      const res = await fetch(`/api/conversations/${id}`);
+      const data = await res.json();
+      const container = document.getElementById('messages');
+      container.innerHTML = '';
+      data.messages.forEach(m => {
+        const div = document.createElement('div');
+        div.className = 'message';
+        const date = new Date(m.msg_date).toLocaleString();
+        div.textContent = `[${date}] ${m.sender}: ${m.text}`;
+        container.appendChild(div);
+      });
+    }
+
+    loadConversations();
+  </script>
+</body>
+</html>
+

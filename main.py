@@ -8,6 +8,8 @@ import csv
 import io
 import re
 from collections import Counter
+from datetime import timedelta
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from config import get_settings
@@ -25,6 +27,9 @@ app.add_middleware(
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+analyzer = SentimentIntensityAnalyzer()
+GAP = timedelta(hours=2)
 
 
 def get_conn():
@@ -214,6 +219,80 @@ def generate_wordcloud():
     cur.close()
     conn.close()
     return {"status": "generated"}
+
+
+def _load_conversations():
+    conn = get_conn()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute(
+        "SELECT msg_date, sender, text FROM messages ORDER BY msg_date"
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    conversations: list[list[dict]] = []
+    current: list[dict] = []
+    last_time = None
+    for row in rows:
+        msg_time = row["msg_date"]
+        if last_time and msg_time - last_time > GAP:
+            conversations.append(current)
+            current = []
+        current.append(row)
+        last_time = msg_time
+    if current:
+        conversations.append(current)
+    return conversations
+
+
+def _tone(messages: list[dict]) -> dict:
+    scores = {"Chris": [], "Hayley": []}
+    for m in messages:
+        score = analyzer.polarity_scores(m["text"] or "")['compound']
+        scores[m["sender"]].append(score)
+    tone = {}
+    for name, vals in scores.items():
+        if vals:
+            avg = sum(vals) / len(vals)
+            if avg > 0.05:
+                tone[name] = "positive"
+            elif avg < -0.05:
+                tone[name] = "negative"
+            else:
+                tone[name] = "neutral"
+        else:
+            tone[name] = "neutral"
+    return tone
+
+
+@app.get("/api/conversations")
+def conversations_api():
+    conversations = _load_conversations()
+    summaries = []
+    for idx, conv in enumerate(conversations):
+        summaries.append(
+            {
+                "id": idx,
+                "start": conv[0]["msg_date"],
+                "end": conv[-1]["msg_date"],
+                "tone": _tone(conv),
+                "count": len(conv),
+            }
+        )
+    return {"conversations": summaries}
+
+
+@app.get("/api/conversations/{cid}")
+def conversation_detail(cid: int):
+    conversations = _load_conversations()
+    if cid < 0 or cid >= len(conversations):
+        return {"messages": []}
+    return {"messages": conversations[cid]}
+
+
+@app.get("/conversations", response_class=HTMLResponse)
+def conversations_page():
+    return Path("static/conversations.html").read_text(encoding="utf-8")
 
 
 if __name__ == "__main__":
