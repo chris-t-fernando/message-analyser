@@ -4,20 +4,116 @@
   <meta charset="utf-8" />
   <title>Conversations</title>
   <style>
-    body { display: flex; font-family: sans-serif; }
-    #conversation-list { width: 300px; border-right: 1px solid #ccc; padding: 10px; }
-    #messages { flex: 1; padding: 10px; }
-    .conversation { cursor: pointer; margin-bottom: 8px; }
-    .conversation:hover { background: #f0f0f0; }
-    .tone { font-size: 0.9em; color: #555; }
-    .message { margin-bottom: 4px; }
+    body {
+      display: flex;
+      font-family: sans-serif;
+      height: 100vh;
+      margin: 0;
+    }
+
+    #conversation-list {
+      width: 300px;
+      border-right: 1px solid #ccc;
+      padding: 10px;
+      overflow-y: auto;
+      background: #f9f9f9;
+    }
+
+    #messages {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+      position: relative;
+      background: #fff;
+    }
+
+    .conversation {
+      cursor: pointer;
+      margin-bottom: 8px;
+      padding: 6px;
+      border-radius: 4px;
+    }
+
+    .conversation:hover {
+      background: #e0e0e0;
+    }
+
+    .conversation.active {
+      background: #d0ebff;
+    }
+
+    .tone {
+      font-size: 0.9em;
+      color: #555;
+    }
+
+    .message {
+      margin-bottom: 8px;
+      padding: 6px;
+      border-radius: 4px;
+    }
+
+    .message.chris {
+      background: #e3f2fd;
+    }
+
+    .message.hayley {
+      background: #fce4ec;
+    }
+
+    #loading {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (max-width: 600px) {
+      body {
+        flex-direction: column;
+      }
+
+      #conversation-list {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #ccc;
+        height: 200px;
+      }
+
+      #messages {
+        height: calc(100vh - 200px);
+      }
+    }
   </style>
 </head>
 <body>
   <div id="conversation-list"></div>
-  <div id="messages"></div>
+  <div id="messages">
+    <div id="loading"><div class="spinner"></div></div>
+  </div>
 
   <script>
+    let currentConversationId = null;
+
     async function loadConversations() {
       const res = await fetch('/api/conversations');
       const data = await res.json();
@@ -26,21 +122,35 @@
       data.conversations.forEach(conv => {
         const div = document.createElement('div');
         div.className = 'conversation';
+        div.dataset.id = conv.id;
         const start = new Date(conv.start).toLocaleString();
         div.innerHTML = `<strong>${start}</strong><div class="tone">Chris: ${conv.tone.Chris}, Hayley: ${conv.tone.Hayley}</div>`;
         div.addEventListener('click', () => loadConversation(conv.id));
         list.appendChild(div);
       });
+      highlightActiveConversation();
+    }
+
+    function highlightActiveConversation() {
+      document.querySelectorAll('#conversation-list .conversation').forEach(div => {
+        div.classList.toggle('active', Number(div.dataset.id) === currentConversationId);
+      });
     }
 
     async function loadConversation(id) {
+      currentConversationId = id;
+      highlightActiveConversation();
+      const loading = document.getElementById('loading');
+      loading.style.display = 'block';
       const res = await fetch(`/api/conversations/${id}`);
       const data = await res.json();
+      loading.style.display = 'none';
       const container = document.getElementById('messages');
       container.innerHTML = '';
       data.messages.forEach(m => {
         const div = document.createElement('div');
         div.className = 'message';
+        div.classList.add(m.sender.toLowerCase());
         const date = new Date(m.msg_date).toLocaleString();
         div.textContent = `[${date}] ${m.sender}: ${m.text}`;
         container.appendChild(div);
