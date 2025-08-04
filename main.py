@@ -65,7 +65,7 @@ async def upload(csv_file: UploadFile = File(...)):
         """
         CREATE TABLE IF NOT EXISTS messages (
             id SERIAL PRIMARY KEY,
-            msg_date TEXT,
+            msg_date TIMESTAMP,
             sender TEXT,
             phone TEXT,
             text TEXT,
@@ -75,7 +75,11 @@ async def upload(csv_file: UploadFile = File(...)):
     )
 
     content = await csv_file.read()
-    reader = csv.DictReader(io.StringIO(content.decode("utf-8")))
+    text = content.decode("utf-8", errors="replace")
+    # Normalize line endings and remove control characters that may confuse the
+    # CSV parser. Some exports include lone carriage returns (\r) or other
+    # unicode separators which cause the csv module to misinterpret newlines.
+    reader = csv.DictReader(io.StringIO(text, newline=""))
     inserted = 0
     for row in reader:
         name, phone = parse_sender(row.get("Sender"))
