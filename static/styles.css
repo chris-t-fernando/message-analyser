@@ -43,8 +43,12 @@ table {
 
 th,
 td {
-  border: 1px solid var(--border);
-  padding: 8px;
+  padding: 4px;
+}
+
+#results th,
+#results td {
+  border: none;
 }
 
 #results td {
@@ -138,10 +142,11 @@ tbody.group:hover {
   margin-bottom: 4px;
 }
 
+
 .message {
   display: flex;
   flex-direction: column;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   width: 100%;
 }
 
@@ -152,7 +157,7 @@ tbody.group:hover {
 }
 
 .message .text {
-  padding: 6px 10px;
+  padding: 4px 8px;
   border-radius: 12px;
   color: #fff;
   max-width: 70%;
