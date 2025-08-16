@@ -38,6 +38,22 @@
     let currentGroups = [];
     let currentTerms = [];
 
+    function formatDateTime(dateString) {
+      const d = new Date(dateString);
+      const datePart = d.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+      let hours = d.getHours();
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      const timePart = `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+      return `${datePart} ${timePart}`;
+    }
+
     function attachTagSuggestions(input) {
       input.setAttribute('list', 'tag-suggestions');
       input.addEventListener('focus', () => {
@@ -72,7 +88,7 @@
       if (isMatch) {
         tr.classList.add('match');
       }
-      ['id', 'Date', 'Sender', 'Text', 'Tags'].forEach(key => {
+      ['id', 'Sender', 'Text', 'Tags'].forEach(key => {
         const td = document.createElement('td');
         if (key === 'id') {
           const a = document.createElement('a');
@@ -80,12 +96,23 @@
           a.textContent = row.id;
           td.appendChild(a);
         } else if (key === 'Text') {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'message';
+          wrapper.classList.add(row.Sender.toLowerCase());
+          const timeDiv = document.createElement('div');
+          timeDiv.className = 'time';
+          timeDiv.textContent = formatDateTime(row.Date);
+          const textDiv = document.createElement('div');
+          textDiv.className = 'text';
           if (currentTerms.length) {
             const regex = new RegExp('(' + currentTerms.map(t => t.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')).join('|') + ')', 'gi');
-            td.innerHTML = row[key].replace(regex, '<mark>$1</mark>');
+            textDiv.innerHTML = row[key].replace(regex, '<mark>$1</mark>');
           } else {
-            td.textContent = row[key];
+            textDiv.textContent = row[key];
           }
+          wrapper.appendChild(timeDiv);
+          wrapper.appendChild(textDiv);
+          td.appendChild(wrapper);
         } else if (key === 'Sender') {
           td.textContent = row[key];
           if (row.phone) {
@@ -142,7 +169,7 @@
       }
       const thead = document.createElement('thead');
       const headerRow = document.createElement('tr');
-      ['ID', 'Date', 'Sender', 'Text', 'Tags'].forEach(h => {
+      ['ID', 'Sender', 'Text', 'Tags'].forEach(h => {
         const th = document.createElement('th');
         th.textContent = h;
         headerRow.appendChild(th);
@@ -156,7 +183,7 @@
         tbody.classList.add('group');
         const topRow = document.createElement('tr');
         const topTd = document.createElement('td');
-        topTd.colSpan = 5;
+        topTd.colSpan = 4;
         const prevBtn = document.createElement('button');
         prevBtn.textContent = 'Load Previous 5';
         prevBtn.addEventListener('click', () => loadMore(idx, -5));
@@ -169,7 +196,7 @@
         });
         const bottomRow = document.createElement('tr');
         const bottomTd = document.createElement('td');
-        bottomTd.colSpan = 5;
+        bottomTd.colSpan = 4;
         const nextBtn = document.createElement('button');
         nextBtn.textContent = 'Load Next 5';
         nextBtn.addEventListener('click', () => loadMore(idx, 5));
