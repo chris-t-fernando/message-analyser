@@ -56,9 +56,13 @@
         const wrapper = document.createElement('div');
         wrapper.className = 'message';
         wrapper.classList.add(m.sender.toLowerCase());
+        const timeDiv = document.createElement('div');
+        timeDiv.className = 'time';
+        timeDiv.textContent = new Date(m.msg_date).toLocaleString();
         const textDiv = document.createElement('div');
         textDiv.className = 'text';
         textDiv.textContent = m.text;
+        wrapper.appendChild(timeDiv);
         wrapper.appendChild(textDiv);
         container.appendChild(wrapper);
       });

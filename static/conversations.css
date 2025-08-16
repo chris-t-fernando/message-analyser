@@ -48,7 +48,14 @@ body {
 
 .message {
   display: flex;
+  flex-direction: column;
   margin-bottom: 8px;
+}
+
+.message .time {
+  font-size: 0.8em;
+  color: #666;
+  margin-bottom: 2px;
 }
 
 .message .text {
@@ -59,7 +66,11 @@ body {
 }
 
 .message.hayley {
-  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+.message.hayley .time {
+  text-align: left;
 }
 
 .message.hayley .text {
@@ -68,7 +79,11 @@ body {
 }
 
 .message.chris {
-  justify-content: flex-end;
+  align-items: flex-end;
+}
+
+.message.chris .time {
+  text-align: right;
 }
 
 .message.chris .text {
