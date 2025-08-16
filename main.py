@@ -199,10 +199,16 @@ def search(
 ):
     """Search for rows containing terms with optional date filtering."""
     op = "AND" if operator.upper() != "OR" else "OR"
-    text_clauses = ["LOWER(text) LIKE %s"] * len(terms)
-    params = [f"%{t.lower()}%" for t in terms]
-    text_clause = f" {op} ".join(text_clauses)
-    where_parts = [f"({text_clause})"]
+    term_clauses: list[str] = []
+    params: list[str] = []
+    for t in terms:
+        pattern = f"%{t.lower()}%"
+        term_clauses.append(
+            "(LOWER(m.text) LIKE %s OR EXISTS (SELECT 1 FROM tags t WHERE t.message_id = m.id AND LOWER(t.tag) LIKE %s))"
+        )
+        params.extend([pattern, pattern])
+    clause_sql = f" {op} ".join(term_clauses)
+    where_parts = [f"({clause_sql})"]
     if start:
         where_parts.append("msg_date >= %s")
         params.append(start)
@@ -210,7 +216,7 @@ def search(
         where_parts.append("msg_date <= %s")
         params.append(end)
     where_sql = " AND ".join(where_parts)
-    sql = f"SELECT id FROM messages WHERE {where_sql} ORDER BY id"
+    sql = f"SELECT m.id FROM messages m WHERE {where_sql} ORDER BY m.id"
     return _execute_search(sql, params)
 
 
