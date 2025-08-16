@@ -21,6 +21,11 @@ body {
   background: #fff;
 }
 
+#message-container {
+  display: flex;
+  flex-direction: column;
+}
+
 .conversation {
   cursor: pointer;
   margin-bottom: 8px;
@@ -42,17 +47,33 @@ body {
 }
 
 .message {
+  display: flex;
   margin-bottom: 8px;
-  padding: 6px;
-  border-radius: 4px;
 }
 
-.message.chris {
-  background: #e3f2fd;
+.message .text {
+  padding: 6px 10px;
+  border-radius: 12px;
+  color: #fff;
+  max-width: 70%;
 }
 
 .message.hayley {
-  background: #fce4ec;
+  justify-content: flex-start;
+}
+
+.message.hayley .text {
+  background: #6c757d;
+  text-align: left;
+}
+
+.message.chris {
+  justify-content: flex-end;
+}
+
+.message.chris .text {
+  background: #0b93f6;
+  text-align: right;
 }
 
 #loading {

@@ -53,12 +53,14 @@
       const data = await res.json();
       loading.style.display = 'none';
       data.messages.forEach(m => {
-        const div = document.createElement('div');
-        div.className = 'message';
-        div.classList.add(m.sender.toLowerCase());
-        const date = new Date(m.msg_date).toLocaleString();
-        div.textContent = `[${date}] ${m.sender}: ${m.text}`;
-        container.appendChild(div);
+        const wrapper = document.createElement('div');
+        wrapper.className = 'message';
+        wrapper.classList.add(m.sender.toLowerCase());
+        const textDiv = document.createElement('div');
+        textDiv.className = 'text';
+        textDiv.textContent = m.text;
+        wrapper.appendChild(textDiv);
+        container.appendChild(wrapper);
       });
     }
 
