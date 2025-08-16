@@ -1,0 +1,117 @@
+:root {
+  --bg: #121212;
+  --panel-bg: #1e1e1e;
+  --border: #333;
+  --text: #e0e0e0;
+  --accent: #90caf9;
+  --highlight: #ffcb6b;
+  --match-bg: #263238;
+  --controls-height: 0px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding-right: 220px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+h1,
+h3 {
+  margin-top: 0;
+}
+
+a {
+  color: var(--accent);
+}
+
+mark {
+  background-color: var(--highlight);
+  color: #000;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border: 1px solid var(--border);
+  padding: 8px;
+}
+
+th {
+  background: #2c2c2c;
+  position: sticky;
+  top: var(--controls-height);
+  z-index: 5;
+}
+
+#search-controls {
+  position: sticky;
+  top: 0;
+  background: var(--panel-bg);
+  padding: 10px;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+#side-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 220px;
+  height: 100%;
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+  background: var(--panel-bg);
+  padding: 10px;
+}
+
+#wordcloud a {
+  text-decoration: none;
+  color: var(--accent);
+  margin: 0 4px;
+}
+
+button {
+  background: #333;
+  color: var(--text);
+  border: 1px solid #555;
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+
+button:hover {
+  background: #444;
+  cursor: pointer;
+}
+
+input,
+select {
+  background: #2c2c2c;
+  border: 1px solid #555;
+  color: var(--text);
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.match {
+  background: var(--match-bg);
+}
+
+tbody.group {
+  border-top: 8px solid var(--bg);
+  transition: background 0.2s;
+}
+
+tbody.group:hover {
+  background: #1a1a1a;
+}
