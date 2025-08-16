@@ -15,7 +15,7 @@
   <p><a href="/upload">Upload CSV</a> | <a href="/conversations">Conversations</a></p>
   <div id="search-controls">
     <div id="search-terms">
-      <input class="term" placeholder="Search text" />
+      <input class="term" placeholder="Search text" list="tag-suggestions" />
     </div>
     <button id="add-term">Add Term</button>
     <select id="operator">
@@ -38,6 +38,14 @@
     let currentGroups = [];
     let currentTerms = [];
 
+    function attachTagSuggestions(input) {
+      input.setAttribute('list', 'tag-suggestions');
+      input.addEventListener('focus', () => {
+        // Trigger showing options when the field is focused
+        input.dispatchEvent(new Event('input'));
+      });
+    }
+
     function setControlsHeight() {
       const sc = document.getElementById('search-controls');
       document.documentElement.style.setProperty('--controls-height', sc.offsetHeight + 'px');
@@ -45,11 +53,15 @@
     setControlsHeight();
     window.addEventListener('resize', setControlsHeight);
 
+    // Apply tag suggestions to the initial search term input
+    attachTagSuggestions(document.querySelector('#search-terms .term'));
+
     document.getElementById('add-term').addEventListener('click', () => {
       const container = document.getElementById('search-terms');
       const input = document.createElement('input');
       input.className = 'term';
       input.placeholder = 'Search text';
+      attachTagSuggestions(input);
       container.appendChild(document.createTextNode(' '));
       container.appendChild(input);
       setControlsHeight();
