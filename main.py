@@ -14,7 +14,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from config import get_settings
 import nltk
-from nltk.corpus import stopwords
+from nltk.corpus import stopwords, brown
 
 app = FastAPI()
 # load configuration from environment
@@ -41,9 +41,17 @@ except LookupError:  # pragma: no cover - download path tested implicitly
     nltk.download("stopwords", quiet=True)
     STOP_WORDS = set(stopwords.words("english"))
 
+# Augment stop words with the most common terms from the Brown corpus.
+try:
+    common_words = nltk.FreqDist(w.lower() for w in brown.words())
+except LookupError:  # pragma: no cover - download path tested implicitly
+    nltk.download("brown", quiet=True)
+    common_words = nltk.FreqDist(w.lower() for w in brown.words())
+STOP_WORDS.update(w for w, _ in common_words.most_common(800) if w.isalpha())
+
 # Ensure user-requested terms are excluded even if not part of the
 # default corpus.
-STOP_WORDS.update({"also"})
+STOP_WORDS.update({"also", "please", "hi", "bit", "okay"})
 
 
 def get_conn():
@@ -299,7 +307,11 @@ def get_wordcloud():
         if isinstance(data, dict):
             # Filter out stop words from stored data in case previous
             # generations included them.
-            filtered = {k: v for k, v in data.items() if k not in STOP_WORDS}
+            filtered = {
+                k: v
+                for k, v in data.items()
+                if k not in STOP_WORDS and not any(c.isdigit() for c in k)
+            }
             items = sorted(filtered.items(), key=lambda x: x[1], reverse=True)[:200]
             data = {k: v for k, v in items}
         return {"words": data}
@@ -320,7 +332,7 @@ def generate_wordcloud():
         cur.close()
         conn.close()
         return {"status": "no_messages"}
-    words = re.findall(r"\w+", text.lower())
+    words = re.findall(r"[a-z']+", text.lower())
     words = [w for w in words if w not in STOP_WORDS]
     counts = Counter(words)
     cur.execute("INSERT INTO wordclouds (data) VALUES (%s)", (json.dumps(counts),))
