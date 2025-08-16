@@ -19,6 +19,22 @@
   <script>
     let currentConversationId = null;
 
+    function formatDateTime(dateString) {
+      const d = new Date(dateString);
+      const datePart = d.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+      let hours = d.getHours();
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12; // hour '0' should be '12'
+      const timePart = `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+      return `${datePart} ${timePart}`;
+    }
+
     async function loadConversations() {
       const res = await fetch('/api/conversations');
       const data = await res.json();
@@ -28,7 +44,7 @@
         const div = document.createElement('div');
         div.className = 'conversation';
         div.dataset.id = conv.id;
-        const start = new Date(conv.start).toLocaleString();
+        const start = formatDateTime(conv.start);
         div.innerHTML = `<strong>${start}</strong><div class="tone">Chris: ${conv.tone.Chris}, Hayley: ${conv.tone.Hayley}</div>`;
         div.addEventListener('click', () => loadConversation(conv.id));
         list.appendChild(div);
@@ -58,7 +74,7 @@
         wrapper.classList.add(m.sender.toLowerCase());
         const timeDiv = document.createElement('div');
         timeDiv.className = 'time';
-        timeDiv.textContent = new Date(m.msg_date).toLocaleString();
+        timeDiv.textContent = formatDateTime(m.msg_date);
         const textDiv = document.createElement('div');
         textDiv.className = 'text';
         textDiv.textContent = m.text;
