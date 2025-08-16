@@ -1,0 +1,42 @@
+mark {
+  background-color: yellow;
+}
+
+table,
+th,
+td {
+  border: 1px solid #ccc;
+  border-collapse: collapse;
+  padding: 4px;
+}
+
+body {
+  margin-right: 220px;
+}
+
+#search-controls {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  padding: 10px 0;
+  z-index: 10;
+}
+
+#side-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 200px;
+  height: 100%;
+  overflow-y: auto;
+  border-left: 1px solid #ccc;
+  background: #f9f9f9;
+  padding: 10px;
+}
+
+#wordcloud a {
+  text-decoration: none;
+  color: inherit;
+  margin: 0 4px;
+}
+
