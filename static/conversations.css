@@ -1,16 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+:root {
+  --bg: #121212;
+  --panel-bg: #1e1e1e;
+  --border: #333;
+  --text: #e0e0e0;
+  --accent: #90caf9;
+}
+
 body {
   display: flex;
-  font-family: sans-serif;
+  font-family: 'Inter', sans-serif;
   height: 100vh;
   margin: 0;
+  background: var(--bg);
+  color: var(--text);
 }
 
 #conversation-list {
   width: 300px;
-  border-right: 1px solid #ccc;
+  border-right: 1px solid var(--border);
   padding: 10px;
   overflow-y: auto;
-  background: #f9f9f9;
+  background: var(--panel-bg);
 }
 
 #messages {
@@ -18,7 +30,7 @@ body {
   padding: 10px;
   overflow-y: auto;
   position: relative;
-  background: #fff;
+  background: var(--bg);
 }
 
 #message-container {
@@ -34,16 +46,17 @@ body {
 }
 
 .conversation:hover {
-  background: #e0e0e0;
+  background: #1a1a1a;
 }
 
 .conversation.active {
-  background: #d0ebff;
+  background: var(--accent);
+  color: #000;
 }
 
 .tone {
   font-size: 0.9em;
-  color: #555;
+  color: #bbb;
 }
 
 .message {
@@ -54,7 +67,7 @@ body {
 
 .message .time {
   font-size: 0.8em;
-  color: #666;
+  color: #ccc;
   margin-bottom: 2px;
 }
 
@@ -100,8 +113,8 @@ body {
 }
 
 .spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3498db;
+  border: 4px solid #333;
+  border-top: 4px solid var(--accent);
   border-radius: 50%;
   width: 24px;
   height: 24px;
@@ -125,7 +138,7 @@ body {
   #conversation-list {
     width: 100%;
     border-right: none;
-    border-bottom: 1px solid #ccc;
+    border-bottom: 1px solid var(--border);
     height: 200px;
   }
 

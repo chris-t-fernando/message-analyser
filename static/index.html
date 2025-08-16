@@ -98,7 +98,7 @@
         } else if (key === 'Text') {
           const wrapper = document.createElement('div');
           wrapper.className = 'message';
-          wrapper.classList.add(row.Sender.toLowerCase());
+          wrapper.classList.add(row.Sender.trim().toLowerCase());
           const timeDiv = document.createElement('div');
           timeDiv.className = 'time';
           timeDiv.textContent = formatDateTime(row.Date);
