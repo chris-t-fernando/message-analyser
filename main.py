@@ -1,5 +1,5 @@
 import json
-from fastapi import FastAPI, File, Query, UploadFile
+from fastapi import Body, FastAPI, File, Query, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -64,6 +64,64 @@ def parse_sender(sender: str) -> tuple[str, str | None]:
     digits = re.sub(r"\D", "", sender)
     name = "Chris" if "417017950" in digits else "Hayley"
     return name, digits or None
+
+
+def _execute_search(sql: str, params: list[str]):
+    """Run a search query and return grouped results with surrounding rows."""
+    conn = get_conn()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute(sql, params)
+    id_rows = cur.fetchall()
+    if not id_rows:
+        cur.close()
+        conn.close()
+        return {"groups": []}
+
+    ids = [r["id"] for r in id_rows]
+    groups: list[list[int]] = []
+    current_group = [ids[0]]
+    for i in ids[1:]:
+        if i - current_group[-1] <= 10:
+            current_group.append(i)
+        else:
+            groups.append(current_group)
+            current_group = [i]
+    groups.append(current_group)
+
+    results: list[dict] = []
+    for g in groups:
+        start_id = max(g[0] - 5, 1)
+        end_id = g[-1] + 5
+        cur.execute(
+            """
+            SELECT m.id,
+                   m.msg_date AS "Date",
+                   m.sender AS "Sender",
+                   m.phone,
+                   m.text AS "Text",
+                   COALESCE(array_agg(t.tag) FILTER (WHERE t.tag IS NOT NULL), ARRAY[]::text[]) AS tags
+            FROM messages m
+            LEFT JOIN tags t ON m.id = t.message_id
+            WHERE m.id BETWEEN %s AND %s
+            GROUP BY m.id
+            ORDER BY m.id
+            """,
+            (start_id, end_id),
+        )
+        subset = cur.fetchall()
+        match_indices = [mid - start_id for mid in g]
+        results.append(
+            {
+                "start": start_id - 1,
+                "end": start_id - 1 + len(subset) - 1,
+                "match_indices": match_indices,
+                "rows": subset,
+            }
+        )
+
+    cur.close()
+    conn.close()
+    return {"groups": results}
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -133,9 +191,6 @@ def search(
 ):
     """Search for rows containing terms with optional date filtering."""
     op = "AND" if operator.upper() != "OR" else "OR"
-    conn = get_conn()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-
     text_clauses = ["LOWER(text) LIKE %s"] * len(terms)
     params = [f"%{t.lower()}%" for t in terms]
     text_clause = f" {op} ".join(text_clauses)
@@ -147,66 +202,23 @@ def search(
         where_parts.append("msg_date <= %s")
         params.append(end)
     where_sql = " AND ".join(where_parts)
+    sql = f"SELECT id FROM messages WHERE {where_sql} ORDER BY id"
+    return _execute_search(sql, params)
 
-    cur.execute(
-        f"""
-        SELECT id
-        FROM messages
-        WHERE {where_sql}
-        ORDER BY id
-        """,
-        params,
+
+@app.get("/search_tag")
+def search_tag(tag: str):
+    """Return rows tagged with ``tag`` using the same grouping logic."""
+    sql = (
+        """
+        SELECT m.id
+        FROM messages m
+        JOIN tags t ON m.id = t.message_id
+        WHERE LOWER(t.tag) = %s
+        ORDER BY m.id
+        """
     )
-    id_rows = cur.fetchall()
-    if not id_rows:
-        cur.close()
-        conn.close()
-        return {"groups": []}
-
-    ids = [r["id"] for r in id_rows]
-
-    # Group ids that fall within 10 lines of each other (5 before/after)
-    groups: list[list[int]] = []
-    current_group = [ids[0]]
-    for i in ids[1:]:
-        if i - current_group[-1] <= 10:
-            current_group.append(i)
-        else:
-            groups.append(current_group)
-            current_group = [i]
-    groups.append(current_group)
-
-    results: list[dict] = []
-    for g in groups:
-        start_id = max(g[0] - 5, 1)
-        end_id = g[-1] + 5
-        cur.execute(
-            """
-            SELECT id,
-                   msg_date AS "Date",
-                   sender AS "Sender",
-                   phone,
-                   text AS "Text"
-            FROM messages
-            WHERE id BETWEEN %s AND %s
-            ORDER BY id
-            """,
-            (start_id, end_id),
-        )
-        subset = cur.fetchall()
-        match_indices = [mid - start_id for mid in g]
-        results.append(
-            {
-                "start": start_id - 1,
-                "end": start_id - 1 + len(subset) - 1,
-                "match_indices": match_indices,
-                "rows": subset,
-            }
-        )
-
-    cur.close()
-    conn.close()
-    return {"groups": results}
+    return _execute_search(sql, [tag.lower()])
 
 
 @app.get("/messages")
@@ -216,14 +228,17 @@ def get_messages(start: int, count: int = 5):
     cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute(
         """
-        SELECT id,
-               msg_date AS "Date",
-               sender AS "Sender",
-               phone,
-               text AS "Text"
-        FROM messages
-        WHERE id >= %s AND id < %s
-        ORDER BY id
+        SELECT m.id,
+               m.msg_date AS "Date",
+               m.sender AS "Sender",
+               m.phone,
+               m.text AS "Text",
+               COALESCE(array_agg(t.tag) FILTER (WHERE t.tag IS NOT NULL), ARRAY[]::text[]) AS tags
+        FROM messages m
+        LEFT JOIN tags t ON m.id = t.message_id
+        WHERE m.id >= %s AND m.id < %s
+        GROUP BY m.id
+        ORDER BY m.id
         """,
         (start, start + count),
     )
@@ -231,6 +246,41 @@ def get_messages(start: int, count: int = 5):
     cur.close()
     conn.close()
     return {"rows": rows}
+
+
+@app.post("/messages/{mid}/tags")
+def add_tag(mid: int, tag: str = Body(..., embed=True)):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS tags (
+            id SERIAL PRIMARY KEY,
+            message_id INTEGER REFERENCES messages(id) ON DELETE CASCADE,
+            tag TEXT NOT NULL,
+            UNIQUE (message_id, tag)
+        )
+        """
+    )
+    cur.execute(
+        "INSERT INTO tags (message_id, tag) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+        (mid, tag),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {"status": "ok"}
+
+
+@app.get("/tags")
+def list_tags():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT DISTINCT tag FROM tags ORDER BY tag")
+    tags = [r[0] for r in cur.fetchall()]
+    cur.close()
+    conn.close()
+    return {"tags": tags}
 
 
 @app.get("/wordcloud")
