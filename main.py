@@ -262,6 +262,48 @@ def get_messages(start: int, count: int = 5):
     return {"rows": rows}
 
 
+@app.get("/message/{mid}")
+def message_context(mid: int):
+    """Return ``mid`` with surrounding messages formatted like a search result."""
+    start_id = max(mid - 5, 1)
+    end_id = mid + 5
+    conn = get_conn()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute(
+        """
+        SELECT m.id,
+               m.msg_date AS "Date",
+               m.sender AS "Sender",
+               m.phone,
+               m.text AS "Text",
+               COALESCE(array_agg(t.tag) FILTER (WHERE t.tag IS NOT NULL), ARRAY[]::text[]) AS tags
+        FROM messages m
+        LEFT JOIN tags t ON m.id = t.message_id
+        WHERE m.id BETWEEN %s AND %s
+        GROUP BY m.id
+        ORDER BY m.id
+        """,
+        (start_id, end_id),
+    )
+    subset = cur.fetchall()
+    cur.close()
+    conn.close()
+    try:
+        match_index = next(i for i, r in enumerate(subset) if r["id"] == mid)
+    except StopIteration:
+        return {"groups": []}
+    return {
+        "groups": [
+            {
+                "start": start_id - 1,
+                "end": start_id - 1 + len(subset) - 1,
+                "match_indices": [match_index],
+                "rows": subset,
+            }
+        ]
+    }
+
+
 @app.post("/messages/{mid}/tags")
 def add_tag(mid: int, tag: str = Body(..., embed=True)):
     conn = get_conn()
