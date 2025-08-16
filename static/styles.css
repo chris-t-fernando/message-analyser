@@ -138,6 +138,7 @@ tbody.group:hover {
   display: flex;
   flex-direction: column;
   margin-bottom: 8px;
+  width: 100%;
 }
 
 .message .time {
