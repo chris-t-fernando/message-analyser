@@ -13,6 +13,8 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from config import get_settings
+import nltk
+from nltk.corpus import stopwords
 
 app = FastAPI()
 # load configuration from environment
@@ -30,6 +32,18 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 analyzer = SentimentIntensityAnalyzer()
 GAP = timedelta(hours=2)
+
+# Load English stop words using NLTK. Download the corpus if it is
+# missing so the application can run in a fresh environment.
+try:
+    STOP_WORDS = set(stopwords.words("english"))
+except LookupError:  # pragma: no cover - download path tested implicitly
+    nltk.download("stopwords", quiet=True)
+    STOP_WORDS = set(stopwords.words("english"))
+
+# Ensure user-requested terms are excluded even if not part of the
+# default corpus.
+STOP_WORDS.update({"also"})
 
 
 def get_conn():
@@ -233,7 +247,10 @@ def get_wordcloud():
     if row:
         data = row[0]
         if isinstance(data, dict):
-            items = sorted(data.items(), key=lambda x: x[1], reverse=True)[:200]
+            # Filter out stop words from stored data in case previous
+            # generations included them.
+            filtered = {k: v for k, v in data.items() if k not in STOP_WORDS}
+            items = sorted(filtered.items(), key=lambda x: x[1], reverse=True)[:200]
             data = {k: v for k, v in items}
         return {"words": data}
     return {"words": None}
@@ -254,6 +271,7 @@ def generate_wordcloud():
         conn.close()
         return {"status": "no_messages"}
     words = re.findall(r"\w+", text.lower())
+    words = [w for w in words if w not in STOP_WORDS]
     counts = Counter(words)
     cur.execute("INSERT INTO wordclouds (data) VALUES (%s)", (json.dumps(counts),))
     conn.commit()
