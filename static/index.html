@@ -97,9 +97,9 @@
           td.appendChild(a);
         } else if (key === 'Text') {
           const wrapper = document.createElement('div');
-          const sender = (row.Sender || '').toLowerCase();
+          const sender = (row.Sender || '').trim().toLowerCase();
           const senderClass = sender.includes('chris') ? 'chris' : 'hayley';
-          wrapper.className = `message ${senderClass}`;
+          wrapper.classList.add('message', senderClass);
           const timeDiv = document.createElement('div');
           timeDiv.className = 'time';
           timeDiv.textContent = formatDateTime(row.Date);

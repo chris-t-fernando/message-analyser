@@ -47,6 +47,10 @@ td {
   padding: 8px;
 }
 
+#results td {
+  vertical-align: top;
+}
+
 th {
   background: #2c2c2c;
   position: sticky;
