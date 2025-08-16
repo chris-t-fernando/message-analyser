@@ -21,6 +21,14 @@
       margin-right: 220px;
     }
 
+    #search-controls {
+      position: sticky;
+      top: 0;
+      background: #fff;
+      padding: 10px 0;
+      z-index: 10;
+    }
+
     #side-panel {
       position: fixed;
       top: 0;
@@ -65,6 +73,8 @@
     <p><a href="#" id="generate-wordcloud">Generate Word Cloud</a></p>
   </div>
   <script>
+  let currentGroups = [];
+  let currentTerms = [];
   document.getElementById('add-term').addEventListener('click', () => {
     const container = document.getElementById('search-terms');
     const input = document.createElement('input');
@@ -73,6 +83,31 @@
     container.appendChild(document.createTextNode(' '));
     container.appendChild(input);
   });
+
+  function createRow(row, index, isMatch = false) {
+    const tr = document.createElement('tr');
+    if (isMatch) {
+      tr.style.backgroundColor = '#ffeeba';
+    }
+    ['index', 'Date', 'Sender', 'Text'].forEach(key => {
+      const td = document.createElement('td');
+      if (key === 'index') {
+        td.textContent = index;
+      } else if (key === 'Text') {
+        const regex = new RegExp('(' + currentTerms.map(t => t.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')).join('|') + ')', 'gi');
+        td.innerHTML = row[key].replace(regex, '<mark>$1</mark>');
+      } else if (key === 'Sender') {
+        td.textContent = row[key];
+        if (row.phone) {
+          td.title = row.phone;
+        }
+      } else {
+        td.textContent = row[key];
+      }
+      tr.appendChild(td);
+    });
+    return tr;
+  }
 
   async function doSearch() {
     const status = document.getElementById('status');
@@ -84,6 +119,7 @@
       status.textContent = 'Please enter a search term';
       return;
     }
+    currentTerms = terms;
     const operator = document.getElementById('operator').value;
     const start = document.getElementById('start-date').value;
     const end = document.getElementById('end-date').value;
@@ -111,38 +147,64 @@
       headerRow.appendChild(th);
     });
     table.appendChild(headerRow);
-    data.groups.forEach(group => {
+    currentGroups = data.groups;
+    data.groups.forEach((group, idx) => {
+      const tbody = document.createElement('tbody');
+      tbody.dataset.group = idx;
+      const topRow = document.createElement('tr');
+      const topTd = document.createElement('td');
+      topTd.colSpan = 4;
+      const prevBtn = document.createElement('button');
+      prevBtn.textContent = 'Load Previous 5';
+      prevBtn.addEventListener('click', () => loadMore(idx, -5));
+      topTd.appendChild(prevBtn);
+      topRow.appendChild(topTd);
+      tbody.appendChild(topRow);
       group.rows.forEach((row, i) => {
-        const tr = document.createElement('tr');
-        if (group.match_indices.includes(i)) {
-          tr.style.backgroundColor = '#ffeeba';
-        }
-        ['index', 'Date', 'Sender', 'Text'].forEach(key => {
-          const td = document.createElement('td');
-          if (key === 'index') {
-            td.textContent = group.start + i;
-          } else if (key === 'Text') {
-            const regex = new RegExp('(' + terms.map(t => t.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')).join('|') + ')', 'gi');
-            td.innerHTML = row[key].replace(regex, '<mark>$1</mark>');
-          } else if (key === 'Sender') {
-            td.textContent = row[key];
-            if (row.phone) {
-              td.title = row.phone;
-            }
-          } else {
-            td.textContent = row[key];
-          }
-          tr.appendChild(td);
-        });
-        table.appendChild(tr);
+        const tr = createRow(row, group.start + i, group.match_indices.includes(i));
+        tbody.appendChild(tr);
       });
-      const sep = document.createElement('tr');
-      const td = document.createElement('td');
-      td.colSpan = 4;
-      td.innerHTML = '&nbsp;';
-      sep.appendChild(td);
-      table.appendChild(sep);
+      const bottomRow = document.createElement('tr');
+      const bottomTd = document.createElement('td');
+      bottomTd.colSpan = 4;
+      const nextBtn = document.createElement('button');
+      nextBtn.textContent = 'Load Next 5';
+      nextBtn.addEventListener('click', () => loadMore(idx, 5));
+      bottomTd.appendChild(nextBtn);
+      bottomRow.appendChild(bottomTd);
+      tbody.appendChild(bottomRow);
+      table.appendChild(tbody);
     });
+  }
+
+  async function loadMore(idx, delta) {
+    const group = currentGroups[idx];
+    let startId;
+    if (delta < 0) {
+      startId = group.start + 1 + delta;
+      if (startId < 1) startId = 1;
+    } else {
+      startId = group.end + 2;
+    }
+    const res = await fetch(`/messages?start=${startId}&count=${Math.abs(delta)}`);
+    const data = await res.json();
+    if (!data.rows.length) return;
+    const tbody = document.querySelector(`tbody[data-group="${idx}"]`);
+    if (delta < 0) {
+      const reference = tbody.children[1];
+      data.rows.forEach((row, i) => {
+        const tr = createRow(row, startId - 1 + i);
+        tbody.insertBefore(tr, reference);
+      });
+      group.start -= data.rows.length;
+    } else {
+      const reference = tbody.lastElementChild;
+      data.rows.forEach((row, i) => {
+        const tr = createRow(row, startId - 1 + i);
+        tbody.insertBefore(tr, reference);
+      });
+      group.end += data.rows.length;
+    }
   }
 
   async function loadWordCloud() {

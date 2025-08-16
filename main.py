@@ -195,6 +195,30 @@ def search(
     return {"groups": results}
 
 
+@app.get("/messages")
+def get_messages(start: int, count: int = 5):
+    """Return a slice of messages starting at ``start`` for ``count`` rows."""
+    conn = get_conn()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute(
+        """
+        SELECT id,
+               msg_date AS "Date",
+               sender AS "Sender",
+               phone,
+               text AS "Text"
+        FROM messages
+        WHERE id >= %s AND id < %s
+        ORDER BY id
+        """,
+        (start, start + count),
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return {"rows": rows}
+
+
 @app.get("/wordcloud")
 def get_wordcloud():
     conn = get_conn()
