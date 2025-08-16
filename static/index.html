@@ -10,103 +10,7 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
     rel="stylesheet"
   />
-  <style>
-    :root {
-      --bg: #121212;
-      --panel-bg: #1e1e1e;
-      --border: #333;
-      --text: #e0e0e0;
-      --accent: #90caf9;
-      --highlight: #ffcb6b;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      padding-right: 220px;
-      font-family: "Inter", sans-serif;
-      background: var(--bg);
-      color: var(--text);
-    }
-
-    h1,
-    h3 {
-      margin-top: 0;
-    }
-
-    a {
-      color: var(--accent);
-    }
-
-    mark {
-      background-color: var(--highlight);
-      color: #000;
-    }
-
-    table,
-    th,
-    td {
-      border: 1px solid var(--border);
-      border-collapse: collapse;
-      padding: 8px;
-    }
-
-    th {
-      background: #2c2c2c;
-    }
-
-    #search-controls {
-      position: sticky;
-      top: 0;
-      background: var(--panel-bg);
-      padding: 10px;
-      z-index: 10;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-    }
-
-    #side-panel {
-      position: fixed;
-      top: 0;
-      right: 0;
-      width: 220px;
-      height: 100%;
-      overflow-y: auto;
-      border-left: 1px solid var(--border);
-      background: var(--panel-bg);
-      padding: 10px;
-    }
-
-    #wordcloud a {
-      text-decoration: none;
-      color: var(--accent);
-      margin: 0 4px;
-    }
-
-    button {
-      background: #333;
-      color: var(--text);
-      border: 1px solid #555;
-      padding: 5px 10px;
-      border-radius: 4px;
-    }
-
-    button:hover {
-      background: #444;
-      cursor: pointer;
-    }
-
-    input,
-    select {
-      background: #2c2c2c;
-      border: 1px solid #555;
-      color: var(--text);
-      padding: 4px 6px;
-      border-radius: 4px;
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
@@ -135,6 +39,14 @@
   <script>
   let currentGroups = [];
   let currentTerms = [];
+
+  function setControlsHeight() {
+    const sc = document.getElementById('search-controls');
+    document.documentElement.style.setProperty('--controls-height', sc.offsetHeight + 'px');
+  }
+  setControlsHeight();
+  window.addEventListener('resize', setControlsHeight);
+
   document.getElementById('add-term').addEventListener('click', () => {
     const container = document.getElementById('search-terms');
     const input = document.createElement('input');
@@ -142,12 +54,13 @@
     input.placeholder = 'Search text';
     container.appendChild(document.createTextNode(' '));
     container.appendChild(input);
+    setControlsHeight();
   });
 
   function createRow(row, index, isMatch = false) {
     const tr = document.createElement('tr');
     if (isMatch) {
-      tr.style.backgroundColor = '#ffeeba';
+      tr.classList.add('match');
     }
     ['index', 'Date', 'Sender', 'Text'].forEach(key => {
       const td = document.createElement('td');
@@ -200,17 +113,20 @@
       table.innerHTML = '<tr><td>No results found</td></tr>';
       return;
     }
+    const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');
     ['Index', 'Date', 'Sender', 'Text'].forEach(h => {
       const th = document.createElement('th');
       th.textContent = h;
       headerRow.appendChild(th);
     });
-    table.appendChild(headerRow);
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
     currentGroups = data.groups;
     data.groups.forEach((group, idx) => {
       const tbody = document.createElement('tbody');
       tbody.dataset.group = idx;
+      tbody.classList.add('group');
       const topRow = document.createElement('tr');
       const topTd = document.createElement('td');
       topTd.colSpan = 4;
