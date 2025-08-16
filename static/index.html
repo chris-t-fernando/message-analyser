@@ -4,47 +4,107 @@
 <head>
   <meta charset="utf-8" />
   <title>CSV Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+    rel="stylesheet"
+  />
   <style>
+    :root {
+      --bg: #121212;
+      --panel-bg: #1e1e1e;
+      --border: #333;
+      --text: #e0e0e0;
+      --accent: #90caf9;
+      --highlight: #ffcb6b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding-right: 220px;
+      font-family: "Inter", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    h1,
+    h3 {
+      margin-top: 0;
+    }
+
+    a {
+      color: var(--accent);
+    }
+
     mark {
-      background-color: yellow;
+      background-color: var(--highlight);
+      color: #000;
     }
 
     table,
     th,
     td {
-      border: 1px solid #ccc;
+      border: 1px solid var(--border);
       border-collapse: collapse;
-      padding: 4px;
+      padding: 8px;
     }
 
-    body {
-      margin-right: 220px;
+    th {
+      background: #2c2c2c;
     }
 
     #search-controls {
       position: sticky;
       top: 0;
-      background: #fff;
-      padding: 10px 0;
+      background: var(--panel-bg);
+      padding: 10px;
       z-index: 10;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
     }
 
     #side-panel {
       position: fixed;
       top: 0;
       right: 0;
-      width: 200px;
+      width: 220px;
       height: 100%;
       overflow-y: auto;
-      border-left: 1px solid #ccc;
-      background: #f9f9f9;
+      border-left: 1px solid var(--border);
+      background: var(--panel-bg);
       padding: 10px;
     }
 
     #wordcloud a {
       text-decoration: none;
-      color: inherit;
+      color: var(--accent);
       margin: 0 4px;
+    }
+
+    button {
+      background: #333;
+      color: var(--text);
+      border: 1px solid #555;
+      padding: 5px 10px;
+      border-radius: 4px;
+    }
+
+    button:hover {
+      background: #444;
+      cursor: pointer;
+    }
+
+    input,
+    select {
+      background: #2c2c2c;
+      border: 1px solid #555;
+      color: var(--text);
+      padding: 4px 6px;
+      border-radius: 4px;
     }
   </style>
 </head>
