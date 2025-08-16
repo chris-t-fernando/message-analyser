@@ -44,8 +44,20 @@
 <body>
   <h1>CSV Search</h1>
   <p><a href="/upload">Upload CSV</a> | <a href="/conversations">Conversations</a></p>
-  <input id="query" placeholder="Search text" />
-  <button onclick="doSearch()">Search</button>
+  <div id="search-controls">
+    <div id="search-terms">
+      <input class="term" placeholder="Search text" />
+    </div>
+    <button id="add-term">Add Term</button>
+    <select id="operator">
+      <option value="AND">AND</option>
+      <option value="OR">OR</option>
+    </select>
+    <label>Start: <input type="date" id="start-date" /></label>
+    <label>End: <input type="date" id="end-date" /></label>
+    <button id="search-btn" onclick="doSearch()">Search</button>
+    <span id="status"></span>
+  </div>
   <table id="results"></table>
   <div id="side-panel">
     <h3>Word Cloud</h3>
@@ -53,10 +65,39 @@
     <p><a href="#" id="generate-wordcloud">Generate Word Cloud</a></p>
   </div>
   <script>
+  document.getElementById('add-term').addEventListener('click', () => {
+    const container = document.getElementById('search-terms');
+    const input = document.createElement('input');
+    input.className = 'term';
+    input.placeholder = 'Search text';
+    container.appendChild(document.createTextNode(' '));
+    container.appendChild(input);
+  });
+
   async function doSearch() {
-    const query = document.getElementById('query').value;
-    const res = await fetch('/search?query=' + encodeURIComponent(query));
+    const status = document.getElementById('status');
+    const btn = document.getElementById('search-btn');
+    const terms = Array.from(document.querySelectorAll('#search-terms .term'))
+      .map(i => i.value.trim())
+      .filter(v => v);
+    if (!terms.length) {
+      status.textContent = 'Please enter a search term';
+      return;
+    }
+    const operator = document.getElementById('operator').value;
+    const start = document.getElementById('start-date').value;
+    const end = document.getElementById('end-date').value;
+    const params = new URLSearchParams();
+    terms.forEach(t => params.append('terms', t));
+    params.append('operator', operator);
+    if (start) params.append('start', start);
+    if (end) params.append('end', end);
+    status.textContent = 'Searching...';
+    btn.disabled = true;
+    const res = await fetch('/search?' + params.toString());
     const data = await res.json();
+    status.textContent = '';
+    btn.disabled = false;
     const table = document.getElementById('results');
     table.innerHTML = '';
     if (!data.groups.length) {
@@ -81,7 +122,7 @@
           if (key === 'index') {
             td.textContent = group.start + i;
           } else if (key === 'Text') {
-            const regex = new RegExp('(' + query.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&') + ')', 'gi');
+            const regex = new RegExp('(' + terms.map(t => t.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')).join('|') + ')', 'gi');
             td.innerHTML = row[key].replace(regex, '<mark>$1</mark>');
           } else if (key === 'Sender') {
             td.textContent = row[key];
@@ -121,7 +162,7 @@
           a.style.fontSize = size + 'px';
           a.addEventListener('click', (ev) => {
             ev.preventDefault();
-            document.getElementById('query').value = word;
+            document.querySelector('#search-terms .term').value = word;
             doSearch();
           });
           container.appendChild(a);

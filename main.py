@@ -111,20 +111,37 @@ async def upload(csv_file: UploadFile = File(...)):
 
 
 @app.get("/search")
-def search(query: str = Query(..., min_length=1)):
-    """Search for all rows containing the query and return groups with context."""
+def search(
+    terms: list[str] = Query(...),
+    operator: str = Query("AND"),
+    start: str | None = None,
+    end: str | None = None,
+):
+    """Search for rows containing terms with optional date filtering."""
+    op = "AND" if operator.upper() != "OR" else "OR"
     conn = get_conn()
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
-    # Find all matching ids ordered by id
+    text_clauses = ["LOWER(text) LIKE %s"] * len(terms)
+    params = [f"%{t.lower()}%" for t in terms]
+    text_clause = f" {op} ".join(text_clauses)
+    where_parts = [f"({text_clause})"]
+    if start:
+        where_parts.append("msg_date >= %s")
+        params.append(start)
+    if end:
+        where_parts.append("msg_date <= %s")
+        params.append(end)
+    where_sql = " AND ".join(where_parts)
+
     cur.execute(
-        """
+        f"""
         SELECT id
         FROM messages
-        WHERE LOWER(text) LIKE %s
+        WHERE {where_sql}
         ORDER BY id
         """,
-        (f"%{query.lower()}%",),
+        params,
     )
     id_rows = cur.fetchall()
     if not id_rows:
