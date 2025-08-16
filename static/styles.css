@@ -115,3 +115,21 @@ tbody.group {
 tbody.group:hover {
   background: #1a1a1a;
 }
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.tag {
+  background: #444;
+  border-radius: 4px;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+
+.tag-input {
+  margin-bottom: 4px;
+}

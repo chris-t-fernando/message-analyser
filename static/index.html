@@ -27,6 +27,7 @@
     <button id="search-btn" onclick="doSearch()">Search</button>
     <span id="status"></span>
   </div>
+  <datalist id="tag-suggestions"></datalist>
   <table id="results"></table>
   <div id="side-panel">
     <h3>Word Cloud</h3>
@@ -59,7 +60,7 @@
       if (isMatch) {
         tr.classList.add('match');
       }
-      ['index', 'Date', 'Sender', 'Text'].forEach(key => {
+      ['index', 'Date', 'Sender', 'Text', 'Tags'].forEach(key => {
         const td = document.createElement('td');
         if (key === 'index') {
           td.textContent = index;
@@ -71,12 +72,93 @@
           if (row.phone) {
             td.title = row.phone;
           }
+        } else if (key === 'Tags') {
+          const container = document.createElement('div');
+          container.className = 'tags';
+          (row.tags || []).forEach(t => {
+            const span = document.createElement('span');
+            span.className = 'tag';
+            span.textContent = t;
+            span.addEventListener('click', () => searchByTag(t));
+            container.appendChild(span);
+          });
+          const input = document.createElement('input');
+          input.className = 'tag-input';
+          input.setAttribute('list', 'tag-suggestions');
+          const btn = document.createElement('button');
+          btn.textContent = 'Add Tag';
+          btn.addEventListener('click', async () => {
+            const tag = input.value.trim();
+            if (!tag) return;
+            await fetch(`/messages/${row.id}/tags`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ tag })
+            });
+            const span = document.createElement('span');
+            span.className = 'tag';
+            span.textContent = tag;
+            span.addEventListener('click', () => searchByTag(tag));
+            container.appendChild(span);
+            input.value = '';
+            loadTags();
+          });
+          td.appendChild(container);
+          td.appendChild(input);
+          td.appendChild(btn);
         } else {
           td.textContent = row[key];
         }
         tr.appendChild(td);
       });
       return tr;
+    }
+
+    function renderResults(data) {
+      const table = document.getElementById('results');
+      table.innerHTML = '';
+      if (!data.groups.length) {
+        table.innerHTML = '<tr><td>No results found</td></tr>';
+        return;
+      }
+      const thead = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+      ['Index', 'Date', 'Sender', 'Text', 'Tags'].forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+      currentGroups = data.groups;
+      data.groups.forEach((group, idx) => {
+        const tbody = document.createElement('tbody');
+        tbody.dataset.group = idx;
+        tbody.classList.add('group');
+        const topRow = document.createElement('tr');
+        const topTd = document.createElement('td');
+        topTd.colSpan = 5;
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = 'Load Previous 5';
+        prevBtn.addEventListener('click', () => loadMore(idx, -5));
+        topTd.appendChild(prevBtn);
+        topRow.appendChild(topTd);
+        tbody.appendChild(topRow);
+        group.rows.forEach((row, i) => {
+          const tr = createRow(row, group.start + i, group.match_indices.includes(i));
+          tbody.appendChild(tr);
+        });
+        const bottomRow = document.createElement('tr');
+        const bottomTd = document.createElement('td');
+        bottomTd.colSpan = 5;
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = 'Load Next 5';
+        nextBtn.addEventListener('click', () => loadMore(idx, 5));
+        bottomTd.appendChild(nextBtn);
+        bottomRow.appendChild(bottomTd);
+        tbody.appendChild(bottomRow);
+        table.appendChild(tbody);
+      });
     }
 
     async function doSearch() {
@@ -104,50 +186,17 @@
       const data = await res.json();
       status.textContent = '';
       btn.disabled = false;
-      const table = document.getElementById('results');
-      table.innerHTML = '';
-      if (!data.groups.length) {
-        table.innerHTML = '<tr><td>No results found</td></tr>';
-        return;
-      }
-      const thead = document.createElement('thead');
-      const headerRow = document.createElement('tr');
-      ['Index', 'Date', 'Sender', 'Text'].forEach(h => {
-        const th = document.createElement('th');
-        th.textContent = h;
-        headerRow.appendChild(th);
-      });
-      thead.appendChild(headerRow);
-      table.appendChild(thead);
-      currentGroups = data.groups;
-      data.groups.forEach((group, idx) => {
-        const tbody = document.createElement('tbody');
-        tbody.dataset.group = idx;
-        tbody.classList.add('group');
-        const topRow = document.createElement('tr');
-        const topTd = document.createElement('td');
-        topTd.colSpan = 4;
-        const prevBtn = document.createElement('button');
-        prevBtn.textContent = 'Load Previous 5';
-        prevBtn.addEventListener('click', () => loadMore(idx, -5));
-        topTd.appendChild(prevBtn);
-        topRow.appendChild(topTd);
-        tbody.appendChild(topRow);
-        group.rows.forEach((row, i) => {
-          const tr = createRow(row, group.start + i, group.match_indices.includes(i));
-          tbody.appendChild(tr);
-        });
-        const bottomRow = document.createElement('tr');
-        const bottomTd = document.createElement('td');
-        bottomTd.colSpan = 4;
-        const nextBtn = document.createElement('button');
-        nextBtn.textContent = 'Load Next 5';
-        nextBtn.addEventListener('click', () => loadMore(idx, 5));
-        bottomTd.appendChild(nextBtn);
-        bottomRow.appendChild(bottomTd);
-        tbody.appendChild(bottomRow);
-        table.appendChild(tbody);
-      });
+      renderResults(data);
+    }
+
+    async function searchByTag(tag) {
+      const status = document.getElementById('status');
+      status.textContent = 'Searching...';
+      const res = await fetch('/search_tag?tag=' + encodeURIComponent(tag));
+      const data = await res.json();
+      status.textContent = '';
+      currentTerms = [tag];
+      renderResults(data);
     }
 
     async function loadMore(idx, delta) {
@@ -207,6 +256,18 @@
       }
     }
 
+    async function loadTags() {
+      const res = await fetch('/tags');
+      const data = await res.json();
+      const dl = document.getElementById('tag-suggestions');
+      dl.innerHTML = '';
+      data.tags.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        dl.appendChild(opt);
+      });
+    }
+
     document.getElementById('generate-wordcloud').addEventListener('click', async (e) => {
       e.preventDefault();
       await fetch('/generate_wordcloud', { method: 'POST' });
@@ -214,6 +275,7 @@
     });
 
     loadWordCloud();
+    loadTags();
   </script>
 </body>
 
