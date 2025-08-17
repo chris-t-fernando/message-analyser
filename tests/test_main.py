@@ -108,6 +108,7 @@ def test_index_upload_and_conversations_pages(client):
     assert "<html" in main.index()
     assert "<html" in main.upload_page()
     assert "<html" in main.conversations_page()
+    assert "<html" in main.monthly_page()
 
 
 def test_upload(monkeypatch, client):
@@ -158,6 +159,24 @@ def test_message_context(monkeypatch):
     conn2 = DummyConn(cursor2)
     monkeypatch.setattr(main, "get_conn", lambda: conn2)
     assert main.message_context(3) == {"groups": []}
+
+
+def test_messages_per_month(monkeypatch):
+    rows = [
+        ("2023-01", "Chris", 2),
+        ("2023-01", "Hayley", 1),
+        ("2023-02", "Chris", 3),
+    ]
+    cursor = SeqCursor([rows])
+    conn = DummyConn(cursor)
+    monkeypatch.setattr(main, "get_conn", lambda: conn)
+    res = main.messages_per_month()
+    assert res == {
+        "months": [
+            {"month": "2023-01", "Chris": 2, "Hayley": 1},
+            {"month": "2023-02", "Chris": 3, "Hayley": 0},
+        ]
+    }
 
 
 def test_add_and_list_tags(monkeypatch):
