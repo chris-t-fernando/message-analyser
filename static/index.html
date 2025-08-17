@@ -88,21 +88,20 @@
       if (isMatch) {
         tr.classList.add('match');
       }
-      ['id', 'Sender', 'Text', 'Tags'].forEach(key => {
+      ['Text', 'Tags'].forEach(key => {
         const td = document.createElement('td');
-        if (key === 'id') {
-          const a = document.createElement('a');
-          a.href = `/?id=${row.id}`;
-          a.textContent = row.id;
-          td.appendChild(a);
-        } else if (key === 'Text') {
+        if (key === 'Text') {
           const wrapper = document.createElement('div');
           const sender = (row.Sender || '').trim().toLowerCase();
           const senderClass = sender.includes('chris') ? 'chris' : 'hayley';
           wrapper.classList.add('message', senderClass);
           const timeDiv = document.createElement('div');
           timeDiv.className = 'time';
-          timeDiv.textContent = formatDateTime(row.Date);
+          timeDiv.textContent = formatDateTime(row.Date) + ' ';
+          const link = document.createElement('a');
+          link.href = `?id=${row.id}`;
+          link.textContent = '(Permalink)';
+          timeDiv.appendChild(link);
           const textDiv = document.createElement('div');
           textDiv.className = 'text';
           if (currentTerms.length) {
@@ -114,11 +113,6 @@
           wrapper.appendChild(timeDiv);
           wrapper.appendChild(textDiv);
           td.appendChild(wrapper);
-        } else if (key === 'Sender') {
-          td.textContent = row[key];
-          if (row.phone) {
-            td.title = row.phone;
-          }
         } else if (key === 'Tags') {
           const container = document.createElement('div');
           container.className = 'tags';
@@ -153,8 +147,6 @@
           td.appendChild(container);
           td.appendChild(input);
           td.appendChild(btn);
-        } else {
-          td.textContent = row[key];
         }
         tr.appendChild(td);
       });
@@ -165,12 +157,12 @@
       const table = document.getElementById('results');
       table.innerHTML = '';
       if (!data.groups.length) {
-        table.innerHTML = '<tr><td>No results found</td></tr>';
+        table.innerHTML = '<tr><td colspan="2">No results found</td></tr>';
         return;
       }
       const thead = document.createElement('thead');
       const headerRow = document.createElement('tr');
-      ['ID', 'Sender', 'Text', 'Tags'].forEach(h => {
+      ['Text', 'Tags'].forEach(h => {
         const th = document.createElement('th');
         th.textContent = h;
         headerRow.appendChild(th);
@@ -184,7 +176,7 @@
         tbody.classList.add('group');
         const topRow = document.createElement('tr');
         const topTd = document.createElement('td');
-        topTd.colSpan = 4;
+        topTd.colSpan = 2;
         const prevBtn = document.createElement('button');
         prevBtn.textContent = 'Load Previous 5';
         prevBtn.addEventListener('click', () => loadMore(idx, -5));
@@ -197,7 +189,7 @@
         });
         const bottomRow = document.createElement('tr');
         const bottomTd = document.createElement('td');
-        bottomTd.colSpan = 4;
+        bottomTd.colSpan = 2;
         const nextBtn = document.createElement('button');
         nextBtn.textContent = 'Load Next 5';
         nextBtn.addEventListener('click', () => loadMore(idx, 5));
