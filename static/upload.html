@@ -21,9 +21,16 @@
             if (!fileInput.files.length) return;
             const formData = new FormData();
             formData.append('csv_file', fileInput.files[0]);
+            const result = document.getElementById('result');
+            const progress = new EventSource('/upload/progress');
+            progress.onmessage = (ev) => {
+                const data = JSON.parse(ev.data);
+                result.textContent = `Lines read: ${data.lines}, inserted: ${data.inserted}, skipped: ${data.skipped} (${data.status})`;
+            };
             const res = await fetch('/upload', { method: 'POST', body: formData });
             const data = await res.json();
-            document.getElementById('result').textContent = 'Inserted rows: ' + data.inserted;
+            progress.close();
+            result.textContent = `Lines read: ${data.lines}, inserted: ${data.inserted}, skipped: ${data.skipped} (${data.status})`;
         });
     </script>
 </body>

@@ -117,7 +117,12 @@ def test_upload(monkeypatch, client):
     conn = DummyConn(cursor)
     monkeypatch.setattr(main, "get_conn", lambda: conn)
     response = client.post("/upload", files={"csv_file": ("f.csv", csv_content)})
-    assert response.json() == {"inserted": 1}
+    assert response.json() == {
+        "lines": 1,
+        "inserted": 1,
+        "skipped": 0,
+        "status": "insert complete",
+    }
 
 
 def test_search_and_tag(monkeypatch):
