@@ -187,6 +187,8 @@
           const tr = createRow(row, group.match_indices.includes(i));
           tbody.appendChild(tr);
         });
+        group.start_date = group.rows[0].Date;
+        group.end_date = group.rows[group.rows.length - 1].Date;
         const bottomRow = document.createElement('tr');
         const bottomTd = document.createElement('td');
         bottomTd.colSpan = 2;
@@ -240,14 +242,16 @@
 
     async function loadMore(idx, delta) {
       const group = currentGroups[idx];
-      let startId;
+      let startDate;
+      let direction;
       if (delta < 0) {
-        startId = group.start + 1 + delta;
-        if (startId < 1) startId = 1;
+        startDate = group.start_date;
+        direction = 'prev';
       } else {
-        startId = group.end + 2;
+        startDate = group.end_date;
+        direction = 'next';
       }
-      const res = await fetch(`/messages?start=${startId}&count=${Math.abs(delta)}`);
+      const res = await fetch(`/messages?start=${encodeURIComponent(startDate)}&count=${Math.abs(delta)}&direction=${direction}`);
       const data = await res.json();
       if (!data.rows.length) return;
       const tbody = document.querySelector(`tbody[data-group="${idx}"]`);
@@ -257,14 +261,14 @@
           const tr = createRow(row);
           tbody.insertBefore(tr, reference);
         });
-        group.start -= data.rows.length;
+        group.start_date = data.rows[0].Date;
       } else {
         const reference = tbody.lastElementChild;
         data.rows.forEach((row) => {
           const tr = createRow(row);
           tbody.insertBefore(tr, reference);
         });
-        group.end += data.rows.length;
+        group.end_date = data.rows[data.rows.length - 1].Date;
       }
     }
 

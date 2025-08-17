@@ -9,7 +9,7 @@ import csv
 import io
 import re
 from collections import Counter
-from datetime import timedelta
+from datetime import datetime, timedelta
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -124,8 +124,8 @@ def _execute_search(sql: str, params: list[str]):
         match_indices = [mid - start_id for mid in g]
         results.append(
             {
-                "start": start_id - 1,
-                "end": start_id - 1 + len(subset) - 1,
+                "start_date": subset[0]["Date"] if subset else None,
+                "end_date": subset[-1]["Date"] if subset else None,
                 "match_indices": match_indices,
                 "rows": subset,
             }
@@ -302,27 +302,49 @@ def search_tag(tag: str):
 
 
 @app.get("/messages")
-def get_messages(start: int, count: int = 5):
-    """Return a slice of messages starting at ``start`` for ``count`` rows."""
+def get_messages(start: datetime, count: int = 5, direction: str = "next"):
+    """Return ``count`` messages relative to ``start`` ordered by date."""
     conn = get_conn()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute(
-        """
-        SELECT m.id,
-               m.msg_date AS "Date",
-               m.sender AS "Sender",
-               m.phone,
-               m.text AS "Text",
-               COALESCE(array_agg(t.tag) FILTER (WHERE t.tag IS NOT NULL), ARRAY[]::text[]) AS tags
-        FROM messages m
-        LEFT JOIN tags t ON m.id = t.message_id
-        WHERE m.id >= %s AND m.id < %s
-        GROUP BY m.id
-        ORDER BY m.id
-        """,
-        (start, start + count),
-    )
-    rows = cur.fetchall()
+    if direction == "prev":
+        cur.execute(
+            """
+            SELECT m.id,
+                   m.msg_date AS "Date",
+                   m.sender AS "Sender",
+                   m.phone,
+                   m.text AS "Text",
+                   COALESCE(array_agg(t.tag) FILTER (WHERE t.tag IS NOT NULL), ARRAY[]::text[]) AS tags
+            FROM messages m
+            LEFT JOIN tags t ON m.id = t.message_id
+            WHERE m.msg_date < %s
+            GROUP BY m.id
+            ORDER BY m.msg_date DESC
+            LIMIT %s
+            """,
+            (start, count),
+        )
+        rows = cur.fetchall()
+        rows.reverse()
+    else:
+        cur.execute(
+            """
+            SELECT m.id,
+                   m.msg_date AS "Date",
+                   m.sender AS "Sender",
+                   m.phone,
+                   m.text AS "Text",
+                   COALESCE(array_agg(t.tag) FILTER (WHERE t.tag IS NOT NULL), ARRAY[]::text[]) AS tags
+            FROM messages m
+            LEFT JOIN tags t ON m.id = t.message_id
+            WHERE m.msg_date > %s
+            GROUP BY m.id
+            ORDER BY m.msg_date
+            LIMIT %s
+            """,
+            (start, count),
+        )
+        rows = cur.fetchall()
     cur.close()
     conn.close()
     return {"rows": rows}
@@ -361,8 +383,8 @@ def message_context(mid: int):
     return {
         "groups": [
             {
-                "start": start_id - 1,
-                "end": start_id - 1 + len(subset) - 1,
+                "start_date": subset[0]["Date"] if subset else None,
+                "end_date": subset[-1]["Date"] if subset else None,
                 "match_indices": [match_index],
                 "rows": subset,
             }
