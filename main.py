@@ -1,6 +1,7 @@
 import json
+import asyncio
 from fastapi import Body, FastAPI, File, Query, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
@@ -32,6 +33,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 analyzer = SentimentIntensityAnalyzer()
 GAP = timedelta(hours=2)
+
+# Track progress of CSV uploads for server-sent events
+UPLOAD_PROGRESS: dict[str, int | bool] | None = None
 
 # Load English stop words using NLTK. Download the corpus if it is
 # missing so the application can run in a fresh environment.
@@ -142,8 +146,32 @@ def upload_page():
     return Path("static/upload.html").read_text(encoding="utf-8")
 
 
+@app.get("/upload/progress")
+async def upload_progress():
+    """Stream the number of rows inserted during the current upload."""
+
+    async def event_generator():
+        last_reported = -1
+        while True:
+            if UPLOAD_PROGRESS is None:
+                await asyncio.sleep(0.5)
+                continue
+            current = UPLOAD_PROGRESS.get("inserted", 0)
+            if current != last_reported:
+                yield f"data: {current}\n\n"
+                last_reported = current
+            if UPLOAD_PROGRESS.get("done") and current == last_reported:
+                break
+            await asyncio.sleep(0.5)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
 @app.post("/upload")
 async def upload(csv_file: UploadFile = File(...)):
+    global UPLOAD_PROGRESS
+    UPLOAD_PROGRESS = {"inserted": 0, "done": False}
+
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(
@@ -183,10 +211,13 @@ async def upload(csv_file: UploadFile = File(...)):
         )
         if cur.rowcount > 0:
             inserted += 1
+            if inserted % 100 == 0:
+                UPLOAD_PROGRESS["inserted"] = inserted
 
     conn.commit()
     cur.close()
     conn.close()
+    UPLOAD_PROGRESS.update({"inserted": inserted, "done": True})
     return {"inserted": inserted}
 
 
