@@ -83,11 +83,11 @@ def test_execute_search_groups(monkeypatch):
     cursor = SeqCursor([
         [{"id": 1}, {"id": 2}, {"id": 15}],
         [
-            {"id": 1, "msg_date": 1, "sender": "A", "phone": "p", "text": "t", "tags": []},
-            {"id": 2, "msg_date": 2, "sender": "A", "phone": "p", "text": "t2", "tags": []},
+            {"id": 1, "Date": 1, "sender": "A", "phone": "p", "text": "t", "tags": []},
+            {"id": 2, "Date": 2, "sender": "A", "phone": "p", "text": "t2", "tags": []},
         ],
         [
-            {"id": 15, "msg_date": 3, "sender": "B", "phone": "p", "text": "x", "tags": []}
+            {"id": 15, "Date": 3, "sender": "B", "phone": "p", "text": "x", "tags": []}
         ],
     ])
     conn = DummyConn(cursor)
@@ -145,7 +145,8 @@ def test_get_messages(monkeypatch):
     cursor = SeqCursor([rows])
     conn = DummyConn(cursor)
     monkeypatch.setattr(main, "get_conn", lambda: conn)
-    res = main.get_messages(1, 1)
+    now = datetime.now()
+    res = main.get_messages(now, 1)
     assert res["rows"] == rows
 
 
