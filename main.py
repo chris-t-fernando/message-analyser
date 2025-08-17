@@ -390,6 +390,38 @@ def generate_wordcloud():
     return {"status": "generated"}
 
 
+@app.get("/api/messages_per_month")
+def messages_per_month():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT to_char(msg_date, 'YYYY-MM') AS month, sender, COUNT(*)
+        FROM messages
+        GROUP BY 1, 2
+        ORDER BY 1
+        """
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    data: dict[str, dict[str, int]] = {}
+    for month, sender, count in rows:
+        if month not in data:
+            data[month] = {"Chris": 0, "Hayley": 0}
+        data[month][sender] = count
+    result = [
+        {"month": m, "Chris": v["Chris"], "Hayley": v["Hayley"]}
+        for m, v in sorted(data.items())
+    ]
+    return {"months": result}
+
+
+@app.get("/monthly", response_class=HTMLResponse)
+def monthly_page():
+    return Path("static/monthly.html").read_text(encoding="utf-8")
+
+
 def _load_conversations():
     conn = get_conn()
     cur = conn.cursor(cursor_factory=RealDictCursor)
