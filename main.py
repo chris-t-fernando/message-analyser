@@ -148,17 +148,22 @@ def upload_page():
 
 @app.get("/upload/progress")
 async def upload_progress():
-    """Stream the number of rows inserted during the current upload."""
+    """Stream progress information during the current upload."""
 
     async def event_generator():
-        last_reported = -1
+        last_reported: dict | None = None
         while True:
             if UPLOAD_PROGRESS is None:
                 await asyncio.sleep(0.5)
                 continue
-            current = UPLOAD_PROGRESS.get("inserted", 0)
+            current = {
+                "lines": UPLOAD_PROGRESS.get("lines", 0),
+                "inserted": UPLOAD_PROGRESS.get("inserted", 0),
+                "skipped": UPLOAD_PROGRESS.get("skipped", 0),
+                "status": UPLOAD_PROGRESS.get("status", "insert in progress"),
+            }
             if current != last_reported:
-                yield f"data: {current}\n\n"
+                yield f"data: {json.dumps(current)}\n\n"
                 last_reported = current
             if UPLOAD_PROGRESS.get("done") and current == last_reported:
                 break
@@ -170,7 +175,13 @@ async def upload_progress():
 @app.post("/upload")
 async def upload(csv_file: UploadFile = File(...)):
     global UPLOAD_PROGRESS
-    UPLOAD_PROGRESS = {"inserted": 0, "done": False}
+    UPLOAD_PROGRESS = {
+        "lines": 0,
+        "inserted": 0,
+        "skipped": 0,
+        "status": "insert in progress",
+        "done": False,
+    }
 
     conn = get_conn()
     cur = conn.cursor()
@@ -193,8 +204,9 @@ async def upload(csv_file: UploadFile = File(...)):
     # CSV parser. Some exports include lone carriage returns (\r) or other
     # unicode separators which cause the csv module to misinterpret newlines.
     reader = csv.DictReader(io.StringIO(text, newline=""))
-    inserted = 0
+    lines = inserted = skipped = 0
     for row in reader:
+        lines += 1
         name, phone = parse_sender(row.get("Sender"))
         cur.execute(
             """
@@ -211,15 +223,37 @@ async def upload(csv_file: UploadFile = File(...)):
         )
         if cur.rowcount > 0:
             inserted += 1
-            if inserted % 100 == 0:
-                conn.commit()
-                UPLOAD_PROGRESS["inserted"] = inserted
+        else:
+            skipped += 1
+        if lines % 100 == 0:
+            conn.commit()
+            UPLOAD_PROGRESS.update(
+                {
+                    "lines": lines,
+                    "inserted": inserted,
+                    "skipped": skipped,
+                    "status": "insert in progress",
+                }
+            )
 
     conn.commit()
     cur.close()
     conn.close()
-    UPLOAD_PROGRESS.update({"inserted": inserted, "done": True})
-    return {"inserted": inserted}
+    UPLOAD_PROGRESS.update(
+        {
+            "lines": lines,
+            "inserted": inserted,
+            "skipped": skipped,
+            "status": "insert complete",
+            "done": True,
+        }
+    )
+    return {
+        "lines": lines,
+        "inserted": inserted,
+        "skipped": skipped,
+        "status": "insert complete",
+    }
 
 
 @app.get("/search")

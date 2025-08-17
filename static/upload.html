@@ -24,12 +24,13 @@
             const result = document.getElementById('result');
             const progress = new EventSource('/upload/progress');
             progress.onmessage = (ev) => {
-                result.textContent = 'Inserted rows: ' + ev.data;
+                const data = JSON.parse(ev.data);
+                result.textContent = `Lines read: ${data.lines}, inserted: ${data.inserted}, skipped: ${data.skipped} (${data.status})`;
             };
             const res = await fetch('/upload', { method: 'POST', body: formData });
             const data = await res.json();
             progress.close();
-            result.textContent = 'Inserted rows: ' + data.inserted;
+            result.textContent = `Lines read: ${data.lines}, inserted: ${data.inserted}, skipped: ${data.skipped} (${data.status})`;
         });
     </script>
 </body>
