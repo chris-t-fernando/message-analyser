@@ -212,6 +212,7 @@ async def upload(csv_file: UploadFile = File(...)):
         if cur.rowcount > 0:
             inserted += 1
             if inserted % 100 == 0:
+                conn.commit()
                 UPLOAD_PROGRESS["inserted"] = inserted
 
     conn.commit()
